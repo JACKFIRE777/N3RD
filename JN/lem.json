@@ -148,7 +148,7 @@
 {"key":"csp_Lib_QJ","name":"🌂Libvio(SP)","type":3,"api":"csp_Lib","searchable":1,"quickSearch":1,"filterable":1,"ext":"7lj763gg402i7942463j9j9jhi558k84lhg7845kili62l35535512l0h61j48410h9g5igk9j40908h351hh484h8l60h"},
 {"key":"csp_Ddrk_QJ","name":"🤿低端(SP)","type":3,"api":"csp_Ddrk","searchable":1,"playerType":2,"quickSearch":1,"filterable":0},
 {"key":"csp_Kuaikan_QJ","name":"👓快看(SP)","type":3,"api":"csp_Kuaikan","searchable":1,"playerType":1,"quickSearch":1,"filterable":1},
-{"key":"csp_Zxzj_QJ","name":"雷蒙影视 |🏠在线(SP)","api":"csp_Zxzj","type":3,"filterable":1,"quickSearch":1,"searchable":1,"playerType":2,"ext":"7lj763gg402i7942463j9j9jgg449698khhh845ki38473"},
+{"key":"csp_Zxzj_QJ","name":"🏠在线(SP)","api":"csp_Zxzj","type":3,"filterable":1,"quickSearch":1,"searchable":1,"playerType":2,"ext":"7lj763gg402i7942463j9j9jgg449698khhh845ki38473"},
 {"key":"csp_CzsappQJ_厂长","name":"👔厂长(SP)","type":3,"api":"csp_CzsappQJ","searchable":1,"playerType":1,"quickSearch":1,"filterable":0,"ext":"7lj763gg402i7942463j9j9jh346968hg5ll845ki38473"},
 {"key":"csp_CzsappQJ_布布","name":"🥼布布(SP)","type":3,"api":"csp_CzsappQJ","searchable":1,"playerType":1,"quickSearch":1,"filterable":0,"ext":"7lj763gg402i7942463j9j9jg3498k93lhggih54828g332i1j"},
 {"key":"csp_Auete_QJ","name":"🛰Auete(SP)","type":3,"api":"csp_Auete","searchable":1,"playerType":1,"quickSearch":1,"filterable":1},
@@ -175,7 +175,7 @@
 {"key":"csp_Jpys_FM","name":"🥇️金牌(SP)","type":3,"api":"csp_Jpys"},
 {"key":"csp_Wwys_FM","name":"🌾️农民(SP)","type":3,"api":"csp_Wwys","ext":"https://wwgz.cn"},
 {"key":"csp_KmeiJu_FM","name":"🍐鸭梨(SP)","type":3,"api":"csp_KmeiJu"},
-{"key":"csp_Xlys_FM","name":"雷蒙影视 |🏔️修罗(SP)","type":3,"api":"csp_Xlys","ext":"https://xl01.com.de"},
+{"key":"csp_Xlys_FM","name":"🏔️修罗(SP)","type":3,"api":"csp_Xlys","ext":"https://xl01.com.de"},
 {"key":"csp_Tvyb_FM","name":"☁︎云播(SP)","type":3,"api":"csp_Tvyb"},
 {"key":"csp_Qiyou_FM","name":"🥝奇优(SP)","type":3,"api":"csp_Qiyou"},
 {"key":"csp_Quanwk_FM","name":"👁‍🗨全看(SP)","type":3,"api":"csp_Quanwk","ext":"https://www.91qkw.com"},
@@ -186,7 +186,7 @@
 {"key":"csp_FourK_FM","name":"🐿️绝对(SP)","type":3,"api":"csp_FourK","ext":"https://www.4kvm.tv"},
 {"key":"csp_Kugou_FM","name":"🐾酷狗(SP)","type":3,"api":"csp_Kugou","playerType":2,"ext":{"classes":[{"type_name":"酷狗","type_id":"kugou"}]}},
 {"key":"csp_Kanqiu_FM","name":"⚾看球(SP)","type":3,"api":"csp_Kanqiu","searchable":1,"quickSearch":1,"changeable":0,"gridview":3,"style":{"type":"list"}},
-{"key":"csp_LivingFM","name":"雷蒙影视 |🐼直播(SP)","type":3,"api":"csp_LivingFM","playerType":2,"ext":"https://api.muxia.fun"},
+{"key":"csp_LivingFM","name":"🐼直播(SP)","type":3,"api":"csp_LivingFM","playerType":2,"ext":"https://api.muxia.fun"},
 
 // ⇩⇩ CM SPIDER ⇩⇩ 
 {"key":"csp_CandyMuj_freeok","name":"🆗FreeOK(SP)","type":3,"api":"csp_CandyMuj_freeok","searchable":1,"quickSearch":1,"filterable":1,"ext":"./N3RD/T/freeok.json"},
