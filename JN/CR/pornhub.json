@@ -17,7 +17,7 @@
 "首页片单链接加后缀": "",
 "分类起始页码": "1",
 "分类链接": "https://cn.pornhub.com/{cateId}?page={catePg}&{by}&{class}",
-"分类名称": "推荐视频&全部&中文&日本&上班时观赏&交互式&大学&女性之选&自述视频&色情日漫&色情明星&虚拟现实&跨性别&青少年&风情少女&高清色情片",
+"分类名称": "推荐视频&全部&中文&pmv&音乐&日本&上班时观赏&交互式&大学&女性之选&自述视频&色情日漫&色情明星&虚拟现实&跨性别&青少年&风情少女&高清色情片",
 "分类名称替换词": "recommended&video&language/chinese&language/japanese&sfw&interactive&categories/college&popularwithwomen&described-video&categories/hentai&categories/pornstar&vr&transgender&categories/teen&categories/babe&hd",
 "分类截取模式": "1",
 "分类列表数组规则": ".videoList&&li:has(.title)",
