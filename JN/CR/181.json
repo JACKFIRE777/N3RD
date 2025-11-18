@@ -4,28 +4,12 @@
   "spider":"https://jar.yy.xn--dkw.xn--6qq986b3xl/m/jar.php?id=index;md5;5077ea664359491c4ae398cad3d61940",
   
   "sites": [
-    //{
-        "key": "csp_pornhub",
-        "name": "Pornhub",
-        "type": 3,
-        "api": "csp_XYQHiker",
-        "jar": "https://raw.githubusercontent.com/fish2018/lib/refs/heads/main/jar/XYQ.jar",
-        "searchable": 1,
-        "quickSearch": 0,
-        "filterable": 0,
-        "ext": "https://raw.githubusercontent.com/JACKFIRE777/N3RD/JACKFIRE777-patch-1/JN/CR/pornhub.json",
-        "style": {
-            "type": "rect",
-            "ratio": 1.6,
-            "proxy": "proxy"
-        }
-    },
     		{
 			"key": "py_Phb",
 			"name": "🔞🍑Pornhub",
 			"type": 3,
 			"api": "./Phb.py"
-		},
+		}
     
     
     
