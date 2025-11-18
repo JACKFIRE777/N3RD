@@ -58,7 +58,19 @@
 			"filterable": 1,
 			"changeable": 0
 		},
-
+		{
+			"key": "csp_Netflav",
+			"name": "Netflav",
+			"type": 3,
+			"api": "csp_Netflav",
+			"jar": "./netflav.jar",
+			"style": { "type": "rect", "ratio": 1.778 },
+			"searchable": 1,
+			"quickSearch": 1,
+			"changeable": 1,
+			"filterable": 0,
+			"timeout": 60
+		},
     { "key": "py_DSYS", "name": "🔞🍑DSYS", "type": 3, "api": "./DSYS.py" }
   ],
   "parses": [],
