@@ -133,7 +133,7 @@ class Spider(Spider):
                     'vod_pic': self.proxy(i('.largeThumb').attr('src')),
                     'vod_tag': 'folder',
                     'vod_remarks': i('.playlist-videos .number').text(),
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
 
         # ---------------- 频道 ----------------
@@ -147,7 +147,7 @@ class Spider(Spider):
                     'vod_pic': self.proxy(i('.avatar img').attr('src')),
                     'vod_tag': 'folder',
                     'vod_remarks': i('.descriptionContainer ul li').eq(-1).text(),
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
 
         # ---------------- 分类（只第一页） ----------------
@@ -161,7 +161,7 @@ class Spider(Spider):
                     'vod_name': i('a').attr('alt'),
                     'vod_pic': self.proxy(i('a img').attr('src')),
                     'vod_tag': 'folder',
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
 
         # ---------------- 明星 ----------------
@@ -176,7 +176,7 @@ class Spider(Spider):
                     'vod_tag': 'folder',
                     'vod_year': i('.performerVideosViewsCount span').eq(0).text(),
                     'vod_remarks': i('.performerVideosViewsCount span').eq(-1).text(),
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
 
         # ---------------- 片单内点击 ----------------
@@ -340,7 +340,7 @@ class Spider(Spider):
                 'vod_name': i('a').attr('title'),
                 'vod_pic': self.proxy(i('img').attr('src')),
                 'vod_remarks': i('.bgShadeEffect').text() or i('.duration').text(),
-                'style': {'ratio': 1.33, 'type': 'rect'}
+                'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
