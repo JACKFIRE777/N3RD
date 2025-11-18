@@ -16,6 +16,12 @@
 			"type": 3,
 			"api": "./phb1.py"
 		},
+	  		{
+			"key": "py_Miss",
+			"name": "Miss(T3)",
+			"type": 3,
+			"api": "./Miss.py"
+		},
    		{
 			"key": "py_DSYS",
 			"name": "DSYS(T3)",
