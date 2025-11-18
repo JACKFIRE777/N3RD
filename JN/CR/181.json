@@ -40,6 +40,24 @@
 			"type": 3,
 			"api": "./lavAPP.py"
 		},
+	  		{
+			"key": "py_推特",
+			"name": "🔞🍑推特",
+			"type": 3,
+			"api": "./推特APP.py"
+		},
+	  		{
+			"key": "py_小红薯",
+			"name": "🔞🍑小红薯",
+			"type": 3,
+			"api": "./小红薯APP.py"
+		},
+	  		{
+			"key": "py_吃瓜",
+			"name": "🔞🍑51吃瓜",
+			"type": 3,
+			"api": "./吃瓜.py"
+		},
    		{
 			"key": "py_DSYS",
 			"name": "🔞🍑DSYS",
