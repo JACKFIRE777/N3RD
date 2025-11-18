@@ -76,13 +76,16 @@ class Spider(Spider):
     def homeContent(self, filter):
         result = {}
 
-        # 手动定义一级分类
+        # 手动定义一级分类（已新增两个关键词搜索分类）
         cateManual = {
             "视频": "/video",
             "片单": "/playlists",
             "频道": "/channels",
             "分类": "/categories",
-            "明星": "/pornstars"
+            "明星": "/pornstars",
+            # 新增关键词搜索分类
+            "搜索：中国": "/search_中国",
+            "搜索：日本": "/search_日本"
         }
 
         classes = []
@@ -114,6 +117,28 @@ class Spider(Spider):
             'limit': 90,
             'total': 999999
         }
+
+        # ---------------- 新增：处理以 search_ 开头的关键词分类 ----------------
+        # 例如 tid == 'search_中国' 或 'search_日本'，直接转换为站内搜索请求
+        if isinstance(tid, str) and tid.startswith('/search_'):
+            # tid 可能带前导斜杠，也可能没有，兼容处理
+            keyword = tid.replace('/search_', '').replace('search_', '')
+            data = self.getpq(f'/video/search?search={keyword}&page={pg}')
+            vdata = []
+            if data is not None:
+                vdata = self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))
+            result['list'] = vdata
+            return result
+
+        # 兼容没有前导斜杠的形式
+        if isinstance(tid, str) and tid.startswith('search_'):
+            keyword = tid.replace('search_', '')
+            data = self.getpq(f'/video/search?search={keyword}&page={pg}')
+            vdata = []
+            if data is not None:
+                vdata = self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))
+            result['list'] = vdata
+            return result
 
         # ---------------- 视频分类 ----------------
         if tid == '/video' or '_this_video' in tid:
