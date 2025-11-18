@@ -16,7 +16,7 @@
 			"type": 3,
 			"api": "./phb1.py"
 		},
-	  		//{
+	  		{
 			"key": "py_Miss",
 			"name": "Missav",
 			"type": 3,
@@ -52,7 +52,7 @@
 			"type": 3,
 			"api": "./小红薯APP.py"
 		},
-	  		//{
+	  		{
 			"key": "py_吃瓜",
 			"name": "🔞🍑51吃瓜",
 			"type": 3,
@@ -62,7 +62,7 @@
 			"key": "py_花都",
 			"name": "🔞🍑花都⛔",
 			"type": 3,
-
+"style":{"type":"rect","ratio":1.778},
 			"api": "./花都.py"
 		},
    		{
@@ -71,9 +71,7 @@
 			"type": 3,
 			"api": "./DSYS.py"
 		} 
-    
-
-  ],
+      ],
   
   // 解析器配置 - 视频解析规则
   "parses": [],
