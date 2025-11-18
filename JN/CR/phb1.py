@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜（已增强：自动关键词搜索分类版，完整可替换文件）
+# by @嗷呜（已增强：自修复 Host 机制，健壮性优化版）
 import json
 import re
 import sys
 from base64 import b64decode, b64encode
-from urllib.parse import urlparse
+from urllib.parse import urlparse, quote
 
 import requests
 from pyquery import PyQuery as pq
@@ -31,7 +31,9 @@ class Spider(Spider):
             self.proxies = {}
 
         self.default_host = "https://www.pornhub.com"
-        self.host = self.gethost(force_update=True) # 首次启动强制获取
+        # 首次启动强制获取 Host
+        self.host = self.gethost(force_update=True) 
+        self.token = "" # 初始化 token 为空
 
         # 默认 headers
         self.headers = {
@@ -81,8 +83,6 @@ class Spider(Spider):
     # 首页分类
     def homeContent(self, filter):
         result = {}
-
-        # ---------- 关键词列表：你只需维护这里 ----------
         keyword_list = ["中国", "BLACKED",  "素人", "大屁股"]
 
         cateManual = {
@@ -93,12 +93,22 @@ class Spider(Spider):
             "明星": "/pornstars"
         }
 
+        # 关键词搜索统一使用 /search?search=
         for kw in keyword_list:
-            cateManual[f"搜索：{kw}"] = f"/search_{kw}"
+            # 使用 URL 编码，以防中文关键词出错
+            cateManual[f"搜索：{kw}"] = f"/search?search={quote(kw)}" 
 
         classes = []
         for k in cateManual:
-            classes.append({'type_name': k, 'type_id': cateManual[k]})
+            # 对于关键词搜索，type_id 使用 /video/search?search=... 的相对路径
+            # 其他分类使用原路径
+            type_id = cateManual[k]
+            if type_id.startswith("/search"):
+                 # 关键词搜索的 type_id 使用 query string 方便在 categoryContent 中解析
+                 # categoryContent 将使用此结构进行 search
+                type_id = type_id.replace("/search", "/video/search") 
+            
+            classes.append({'type_name': k, 'type_id': type_id})
 
         result['class'] = classes
         result['filters'] = {}
@@ -109,19 +119,21 @@ class Spider(Spider):
         data = self.getpq('/recommended')
         if data is None:
             return {'list': []}
-        vhtml = data("#recommendedListings .pcVideoListItem .phimage")
+        # 统一使用更宽泛的选择器，防止域名或布局微调导致推荐丢失
+        vhtml = data(".videoUList .pcVideoListItem .phimage") 
         if vhtml is None:
             return {'list': []}
         return {'list': self.getlist(vhtml)}
 
-    # 片单Token获取辅助方法（新增）
+    # 片单Token获取辅助方法
     def get_playlist_token(self, tid_real):
         hdata = self.getpq(tid_real)
         if hdata is not None:
-            token_attr = hdata('#searchInput').attr('data-token')
+            # 尝试从 body 查找 token，确保覆盖
+            token_attr = hdata('#searchInput').attr('data-token') or hdata('body').attr('data-token')
             if token_attr:
                 self.token = token_attr
-                print("Successfully retrieved playlist token.")
+                print(f"Successfully retrieved playlist token: {self.token}")
                 return True
         return False
 
@@ -135,11 +147,14 @@ class Spider(Spider):
             'total': 999999
         }
 
-        # -------------- 关键词分类 --------------
-        if isinstance(tid, str) and (tid.startswith('/search_') or tid.startswith('search_')):
-            keyword = tid.replace('/search_', '').replace('search_', '')
-            data = self.getpq(f'/video/search?search={keyword}&page={pg}')
+        # -------------- 关键词搜索分类（优化） --------------
+        # 关键词搜索的 type_id 格式为 /video/search?search=关键词
+        if isinstance(tid, str) and tid.startswith('/video/search?'):
+            # tid 已经是完整的带参数的 search URL
+            url_path = f'{tid}&page={pg}'
+            data = self.getpq(url_path)
             if data is not None:
+                # 关键词搜索结果的选择器
                 vdata = self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))
 
         # ---------------- 视频分类 ----------------
@@ -156,30 +171,106 @@ class Spider(Spider):
             if data is not None:
                 vhtml = data('#playListSection li')
                 for i in vhtml.items():
-                    vdata.append({
-                        'vod_id': 'playlists_click_' + (i('.thumbnail-info-wrapper .display-block a').attr('href') or ''),
-                        'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title') or '',
-                        'vod_pic': self.proxy(i('.largeThumb').attr('src')),
-                        'vod_tag': 'folder',
-                        'vod_remarks': i('.playlist-videos .number').text() or '',
-                        'style': {"type": "rect", "ratio": 1.33}
-                    })
+                    # 避免在获取不到 href/title 时崩溃
+                    href = i('.thumbnail-info-wrapper .display-block a').attr('href') or ''
+                    name = i('.thumbnail-info-wrapper .display-block a').attr('title') or ''
+                    if href:
+                        vdata.append({
+                            'vod_id': 'playlists_click_' + href,
+                            'vod_name': name,
+                            'vod_pic': self.proxy(i('.largeThumb').attr('src')),
+                            'vod_tag': 'folder',
+                            'vod_remarks': i('.playlist-videos .number').text() or '',
+                            'style': {"type": "rect", "ratio": 1.33}
+                        })
+        
+        # ---------------- 频道 (选择器优化) ----------------
+        elif tid == '/channels':
+            # 优化：使用更精确的 class 确保能找到列表
+            data = self.getpq(f'{tid}?o=rk&page={pg}')
+            if data is not None:
+                # 频道列表项：从 #filterChannelsSection li 的父级开始查找
+                vhtml = data('#filterChannelsSection li')
+                for i in vhtml.items():
+                    # 使用 .description .avatar 确保找到正确的元素
+                    avatar = i('.description .avatar')
+                    href = avatar.find('a').attr('href') or ''
+                    img = avatar.find('img')
+                    name = img.attr('alt') or ''
+                    remarks = i('.descriptionContainer ul li').eq(-1).text() or ''
+                    
+                    if href:
+                         vdata.append({
+                            'vod_id': 'director_click_' + href,
+                            'vod_name': name,
+                            'vod_pic': self.proxy(img.attr('src')),
+                            'vod_tag': 'folder',
+                            'vod_remarks': remarks,
+                            'style': {"type": "rect", "ratio": 1.33}
+                        })
+        
+        # ---------------- 分类（只第一页 - 选择器优化） ----------------
+        elif tid == '/categories' and str(pg) == '1':
+            result['pagecount'] = 1
+            data = self.getpq(f'{tid}')
+            if data is not None:
+                # 确保选择器能找到所有分类卡片
+                vhtml = data('.categoriesListSection li .category-info') 
+                for i in vhtml.items():
+                    link = i.find('a').eq(0)
+                    href = link.attr('href') or ''
+                    name = link.text() or ''
+                    
+                    # 尝试获取图片，分类页面图片可能在 .category-info 的兄弟元素中
+                    img_src = i.parent().find('img').attr('src')
 
-        # （其他频道、分类、明星等逻辑保持不变，依赖 getpq 的自修复能力）
-        # ... [略去未改动的 /channels, /categories, /pornstars 逻辑以保持代码简洁] ...
-
-        # ---------------- 片单内点击 (优化 Token 缺失重试逻辑) ----------------
+                    if href:
+                        vdata.append({
+                            'vod_id': href + '_this_video',
+                            'vod_name': name,
+                            'vod_pic': self.proxy(img_src),
+                            'vod_tag': 'folder',
+                            'style': {"type": "rect", "ratio": 1.33}
+                        })
+        
+        # ---------------- 明星 (选择器优化) ----------------
+        elif tid == '/pornstars':
+            data = self.getpq(f'{tid}?o=t&page={pg}')
+            if data is not None:
+                # 明星列表项：使用更宽泛的 .performerCard
+                vhtml = data('#popularPornstars .performerCard')
+                for i in vhtml.items():
+                    link = i('.wrap a').eq(0)
+                    href = link.attr('href') or ''
+                    name = i('.performerCardName').text() or ''
+                    img_src = link.find('img').attr('src')
+                    year = i('.performerVideosViewsCount span').eq(0).text() or ''
+                    remarks = i('.performerVideosViewsCount span').eq(-1).text() or ''
+                    
+                    if href:
+                        vdata.append({
+                            'vod_id': 'pornstars_click_' + href,
+                            'vod_name': name,
+                            'vod_pic': self.proxy(img_src),
+                            'vod_tag': 'folder',
+                            'vod_year': year,
+                            'vod_remarks': remarks,
+                            'style': {"type": "rect", "ratio": 1.33}
+                        })
+        
+        # ---------------- 片单内点击 ----------------
         elif 'playlists_click' in (tid or ''):
             tid_real = (tid or '').split('click_')[-1]
             tid_id = tid_real.split('playlist/')[-1].split('?')[0]
             token_val = getattr(self, "token", "")
             
-            # Case 1: 第一页，必须获取 Token
+            # Case 1: 第一页，必须获取 Token，并获取第一页列表数据
             if str(pg) == '1':
-                self.get_playlist_token(tid_real)
-                # 重新获取 token_val, 且第一页列表数据已经在 get_playlist_token 内部获取了
-                token_val = getattr(self, "token", "")
-                hdata = self.getpq(tid_real) # 重新获取一次第一页数据
+                if self.get_playlist_token(tid_real): # 尝试更新 token
+                    token_val = self.token
+                
+                # 获取第一页列表数据
+                hdata = self.getpq(tid_real) 
                 if hdata is not None:
                     vdata = self.getlist(hdata('#videoPlaylist .pcVideoListItem .phimage'))
             
@@ -187,11 +278,12 @@ class Spider(Spider):
             if str(pg) != '1' and not token_val and tid_id:
                 print("Token missing for chunked view, attempting to fetch from page 1...")
                 # 尝试强制获取第一页的 token
-                self.get_playlist_token(tid_real)
-                token_val = getattr(self, "token", "")
+                if self.get_playlist_token(tid_real):
+                    token_val = self.token
                 
             # Case 3: 请求分块数据 (适用于所有分页 > 1)
             if tid_id and token_val and str(pg) != '1':
+                # 注意：这里 /playlist/viewChunked 必须使用正确的 Host，getpq 已经处理
                 data = self.getpq(f'/playlist/viewChunked?id={tid_id}&token={token_val}&page={pg}')
                 if data is not None:
                     vdata = self.getlist(data('.pcVideoListItem .phimage'))
@@ -210,20 +302,9 @@ class Spider(Spider):
             if data is not None:
                 vdata = self.getlist(data('#mostRecentVideosSection .pcVideoListItem .phimage'))
         
-        # ---------------- 分类（只第一页） ----------------
-        elif tid == '/categories' and str(pg) == '1':
-            result['pagecount'] = 1
-            data = self.getpq(f'{tid}')
-            if data is not None:
-                vhtml = data('.categoriesListSection li .relativeWrapper')
-                for i in vhtml.items():
-                    vdata.append({
-                        'vod_id': (i('a').attr('href') or '') + '_this_video',
-                        'vod_name': i('a').attr('alt') or '',
-                        'vod_pic': self.proxy(i('a img').attr('src')),
-                        'vod_tag': 'folder',
-                        'style': {"type": "rect", "ratio": 1.33}
-                    })
+        # ---------------- 兜底（如果上述逻辑未匹配，返回空列表） ----------------
+        else:
+            print(f"No matching logic found for tid: {tid}")
 
 
         result['list'] = vdata
@@ -231,12 +312,12 @@ class Spider(Spider):
 
     # 视频详情页
     def detailContent(self, ids):
+        # ... [逻辑保持不变] ...
         url = f"{self.host}{ids[0]}"
         data = self.getpq(ids[0])
         if data is None:
             return {'list': []}
 
-        # ... [详情页逻辑保持不变] ...
         vn = data('meta[property="og:title"]').attr('content') or ''
         dtext = data('.userInfo .usernameWrap a')
         director_href = dtext.attr('href') if dtext else ''
@@ -276,15 +357,18 @@ class Spider(Spider):
         vod['vod_play_url'] = '#'.join(plist)
         return {'list': [vod]}
 
-    # 关键词搜索
+    # 关键词搜索（由 categoryContent 处理，此处仅作为兼容）
     def searchContent(self, key, quick, pg="1"):
-        data = self.getpq(f'/video/search?search={key}&page={pg}')
+        # 确保关键词被正确编码
+        encoded_key = quote(key) 
+        data = self.getpq(f'/video/search?search={encoded_key}&page={pg}')
         if data is None:
             return {'list': []}
         return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))}
 
-    # 播放器接口
+    # 播放器接口 (保持不变)
     def playerContent(self, flag, id, vipFlags):
+        # ... [逻辑保持不变] ...
         try:
             ids = self.d64(id).split('@@@@')
         except:
@@ -301,7 +385,7 @@ class Spider(Spider):
         
         return {'parse': parse_type, 'url': url_content, 'header': self.headers}
 
-    # 本地代理（m3u8 / ts）
+    # 本地代理（m3u8 / ts） (保持不变)
     def localProxy(self, param):
         url = self.d64(param.get('url'))
         proxy_type = param.get('type')
@@ -314,7 +398,7 @@ class Spider(Spider):
 
     # m3u8 代理重写 ts 链接 (保持不变)
     def m3Proxy(self, url):
-        # ... [m3Proxy 逻辑保持不变] ...
+        # ... [逻辑保持不变] ...
         try:
             ydata = self.session.get(url, allow_redirects=False, timeout=10)
             data = ydata.content.decode('utf-8')
@@ -345,6 +429,7 @@ class Spider(Spider):
 
     # ts 文件/图片代理 (保持不变)
     def tsProxy(self, url):
+        # ... [逻辑保持不变] ...
         try:
             data = self.session.get(url, stream=True, timeout=15)
             content_type = data.headers.get('Content-Type', 'application/octet-stream')
@@ -353,13 +438,14 @@ class Spider(Spider):
             print(f"tsProxy 请求失败: {e}")
             return [500, "text/plain", f"tsProxy error: {e}"]
 
-    # 自动获取 host（重构为内部/外部调用）
+    # 自动获取 host
     def gethost(self, force_update=False):
         # 如果不是强制更新，且 host 不是默认值，则直接返回
         if not force_update and self.host != self.default_host:
             return self.host
             
         try:
+            # 确保 gethost 中也使用 proxies
             response = requests.get(self.default_host, headers=self.headers, proxies=self.proxies,
                                     allow_redirects=False, timeout=10)
             loc = response.headers.get('Location')
@@ -373,6 +459,7 @@ class Spider(Spider):
 
     # Base64 编码 (保持不变)
     def e64(self, text):
+        # ... [逻辑保持不变] ...
         try:
             text_bytes = text.encode('utf-8')
             encoded_bytes = b64encode(text_bytes)
@@ -383,6 +470,7 @@ class Spider(Spider):
 
     # Base64 解码 (保持不变)
     def d64(self, encoded_text):
+        # ... [逻辑保持不变] ...
         try:
             encoded_bytes = encoded_text.encode('utf-8')
             decoded_bytes = b64decode(encoded_bytes)
@@ -425,12 +513,12 @@ class Spider(Spider):
             return pq(response.text)
             
         except requests.exceptions.HTTPError as e:
-            # 捕获 HTTP 错误（如 404, 301/302/403 等）
+            # 捕获 HTTP 错误（如 404, 301/302/403/400 等）
             print(f"请求失败 (HTTP {e.response.status_code}): {url}")
             
             # 如果是重定向或权限问题，并且没有重试过，尝试更新 Host 并重试
-            if retry_count == 0 and e.response.status_code in [301, 302, 403]:
-                print("Host likely outdated. Attempting to update and retry...")
+            if retry_count == 0 and e.response.status_code in [301, 302, 403, 400]:
+                print("Host likely outdated or request blocked. Attempting to update and retry...")
                 self.host = self.gethost(force_update=True)
                 self.update_session_headers()
                 return self.getpq(path, retry_count=1) # 增加重试计数
@@ -453,6 +541,7 @@ class Spider(Spider):
     def proxy(self, data, type='img'):
         if data and isinstance(self.proxies, dict) and len(self.proxies):
             try:
+                # 确保调用基础类的 getProxyUrl
                 return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
             except:
                 return data
