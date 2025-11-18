@@ -130,7 +130,7 @@ class Spider(Spider):
         return [200,res.headers.get('Content-Type'),self.aesimg(res.content)]
 
     def get_domains(self):
-        html = self.getpq(self.fetch("https://badly.hnvjlkis.com", headers=self.headers).text)
+        html = self.getpq(self.fetch("https://www.qcbtifw.xyz", headers=self.headers).text)
         html_pattern = r"Base64\.decode\('([^']+)'\)"
         html_match = re.search(html_pattern, html('script').eq(-1).text(), re.DOTALL)
         if not html_match:
