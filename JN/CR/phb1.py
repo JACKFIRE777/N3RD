@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜（最终修复版：代理/Session 统一 + Host 自修复 + 关键词）
+# by @嗷呜（最终决战版：修复 JS/CDN 质询导致的“假”200 错误）
 import json
 import re
 import sys
@@ -52,7 +52,6 @@ class Spider(Spider):
             'priority': 'u=1, i',
         }
         
-        # *** 关键修复：初始化顺序 ***
         # 1. 先创建 session，并配置好代理
         self.session = Session()
         self.session.proxies.update(self.proxies)
@@ -145,7 +144,6 @@ class Spider(Spider):
         }
 
         # -------------- 关键词搜索分类 --------------
-        # 关键词搜索的 type_id 格式为 /video/search?search=关键词
         if isinstance(tid, str) and tid.startswith('/video/search?'):
             url_path = f'{tid}&page={pg}'
             data = self.getpq(url_path)
@@ -412,7 +410,7 @@ class Spider(Spider):
             print(f"tsProxy 请求失败: {e}")
             return [500, "text/plain", f"tsProxy error: {e}"]
 
-    # 自动获取 host（*** 关键修复 ***）
+    # 自动获取 host（关键修复）
     def gethost(self, force_update=False):
         if not force_update and hasattr(self, 'host') and self.host != self.default_host:
             return self.host
@@ -481,7 +479,7 @@ class Spider(Spider):
                 })
         return vlist
 
-    # 统一请求 + 解析（*** 关键修复：Host 自修复重试 ***）
+    # 统一请求 + 解析（*** 最终修复：增加 JS/CDN 质询检测 ***）
     def getpq(self, path, retry_count=0):
         if path.startswith('http://') or path.startswith('https://'):
             url = path
@@ -491,26 +489,46 @@ class Spider(Spider):
         try:
             response = self.session.get(url, timeout=15)
             response.raise_for_status() 
-            response.encoding = response.apparent_encoding 
-            return pq(response.text)
+            response.encoding = response.apparent_encoding
+            html_text = response.text
+            
+            # *** 核心修复：检测 JS/CDN 质询页面 ***
+            # 如果页面返回 200 OK，但内容是质询页，则手动抛出异常以触发重试
+            if ("Please enable JavaScript" in html_text or 
+                "challenge-running" in html_text or 
+                "Checking if the site connection is secure" in html_text or
+                "Verifying you are human" in html_text):
+                
+                print(f"JS/CDN 质询页被检测到: {url}")
+                # 手动抛出一个 HTTPError，以便被下面的 except 块捕获
+                raise requests.exceptions.HTTPError("JS/Bot challenge page detected", response=response)
+            
+            return pq(html_text)
             
         except requests.exceptions.HTTPError as e:
-            print(f"请求失败 (HTTP {e.response.status_code}): {url}")
-            if retry_count == 0 and e.response.status_code in [301, 302, 403, 400]:
-                print("Host likely outdated. Forcing update and retry...")
+            # 捕获 HTTP 错误（4xx/5xx）或我们手动抛出的“质询页”错误
+            print(f"请求失败 (HTTP Error): {url}, {str(e)}")
+            
+            # 只要是第一次失败，就强制更新 Host 并重试
+            if retry_count == 0:
+                print("Host likely outdated or blocked. Forcing update and retry...")
                 self.gethost(force_update=True) # 强制更新 self.host (会使用 session)
                 self.update_session_headers()   # 更新 session 的 headers
                 return self.getpq(path, retry_count=1) # 重试
-            return None
+            
+            return None # 重试后仍然失败
             
         except requests.exceptions.RequestException as e:
+            # 捕获其他请求错误（如连接失败、超时等）
             print(f"请求失败 (Request Exception): {url}, {str(e)}")
+            
             if retry_count == 0:
                 print("Connection failed. Forcing update and retry...")
-                self.gethost(force_update=True) # 强制更新 self.host (会使用 session)
-                self.update_session_headers()   # 更新 session 的 headers
+                self.gethost(force_update=True) # 强制更新 self.host
+                self.update_session_headers()   # 更新 headers
                 return self.getpq(path, retry_count=1) # 重试
-            return None
+                
+            return None # 重试后仍然失败
 
     # 代理图片/视频（若有代理）
     def proxy(self, data, type='img'):
