@@ -25,16 +25,30 @@
 			"timeout": 60,
 			"ext": "proxy"
 		},
-			{
-			"key": "pornhub",
-			"name": "py_Phb",
+	  		{
+			"key": "MissAV",
+			"name": "MissAV",
 			"type": 3,
-			"api": "./Phb.py",
+			"api": "csp_Miss",
+			"ext": "noproxy",
+			"searchable": 1,
+			"recordable": 0,
+			"timeout": 60,
+			"style": {
+				"type": "rect",
+				"ratio": 1.78
+			}},
+	  		{
+			"key": "csp_JavBus",
+			"name": "JavBus",
+			"type": 3,
+			"api": "csp_JavBus",
 			"searchable": 1,
 			"quickSearch": 1,
-			"filterable": 0,
+			"filterable": 1,
 			"changeable": 0
 		},
+
     { "key": "py_DSYS", "name": "🔞🍑DSYS", "type": 3, "api": "./DSYS.py" }
   ],
   "parses": [],
