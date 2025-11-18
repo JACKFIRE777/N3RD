@@ -9,7 +9,7 @@ class Spider(Spider):
 		self.base_url='http://api.hclyz.com:81/mf'
 
 	def homeContent(self,filter):
-		classes = [{"type_name": "色播聚合","type_id":"/json.txt"}]
+		classes = [{"type_name": "色播聚合","type_id":"/yuncaidan.txt"}]
 		result = {"class": classes}
 		return result
 
