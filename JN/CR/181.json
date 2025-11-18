@@ -15,8 +15,13 @@
 			"name": "🔞测Pornhub",
 			"type": 3,
 			"api": "./phb1.py"
-		}
-    
+		},
+   		{
+			"key": "py_DSYS",
+			"name": "DSYS(T3)",
+			"type": 3,
+			"api": "./DSYS.py"
+		} 
     
 
   ],
