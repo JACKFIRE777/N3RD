@@ -22,8 +22,7 @@ class Spider(Spider):
         {
             "": "",
             "ext": {
-                //原始"site": "https://missav.ai",
-                "site": "https://missav.ai/dm51/cn",
+               "site": "https://missav.ai/dm51/cn",
                 "cfproxy": ""
             }
         }
