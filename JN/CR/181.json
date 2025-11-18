@@ -4,7 +4,7 @@
   "spider":"https://jar.yy.xn--dkw.xn--6qq986b3xl/m/jar.php?id=index;md5;5077ea664359491c4ae398cad3d61940",
   
   "sites": [
-    {
+    //{
         "key": "csp_pornhub",
         "name": "Pornhub",
         "type": 3,
@@ -20,13 +20,12 @@
             "proxy": "proxy"
         }
     },
-    
-		{
+    		{
 			"key": "py_Phb",
 			"name": "Phb(T3)",
 			"type": 3,
 			"api": "./Phb.py"
-		}
+		},
     
     
     
