@@ -9,7 +9,8 @@ import time
 import uuid
 from base64 import b64decode
 from urllib.parse import urlparse, urlunparse
-from Crypto.Hash import SHA1, HMAC
+# 注意：Crypto 模块需要您的运行环境支持
+from Crypto.Hash import SHA1, HMAC 
 from pyquery import PyQuery as pq
 sys.path.append('..')
 from base.spider import Spider
@@ -23,7 +24,7 @@ class Spider(Spider):
             "": "",
             "ext": {
                "site": "https://missav.ai",
-                "cfproxy": ""
+               "cfproxy": ""
             }
         }
         自备:过cf代理如https://xx.vvvv.cc/proxy?url=
@@ -58,9 +59,10 @@ class Spider(Spider):
 
     fts = 'H4sIAAAAAAAAA23P30rDMBQG8FeRXM8X8FVGGZk90rA0HU3SMcZgXjn8V6p2BS2KoOiFAwUn2iK+TBP7GBpYXbG9/c6Pc77TnaABjNHOFtojVIDPUQcx7IJJvl9ydX30GwSYSpN0J4iZgTqJiywrPlN1vm/GJiPMJgGxJaZo2qnc3WXDuZIKMqSwUcX7Ui8O1DJRH3Gldh3CgMM2l31BhNGW8euq3PNFrac+PVNZ2NYzjMrbY53c6/Sm2uwDBczB7mGxqaDTWfkV6atXvXiu4FD2KeHOf3nxViahjv8YxwHYtWfyQ3NvFZYP85oSno3HvYDAiNevPqnosWFHAAPahnU6b2DXY8Jp0bO8QdfEmlo/SBd5PPUBAAA='
 
-    actfts = 'H4sIAAAAAAAAA5WVS2sUQRRG/0rT6xTcqq5Xiwjm/X6sQxZjbBLRBBeOIEGIIEgWrtwI4lJEQsjGhU6Iv2bGcf6FVUUydW/d1SxT55sDfbpmsn9WP+/e1A+q+rh7dnT8qp6rT3snXTz4N7icXH4OB697L/rxZP+sPo1g+Ot8PPg+vvoyOb+IOJ7Vb+fuqGxkJSrZmMOTexiORDjAGxs3GvDGinCANjp5NPbo4NHYo5PHYI8OHoM9JnkM9pjgMdhjksdijwkeiz02eSz22OCx2GOTx2GPDR6HPS55HPa44HHY45LHY48LHo89Pnk89vjg8djjk6fFHh88bfAcxNXduz/sv0Qvfnz74+/X65lf/OMqfzD9ndF8geYzWijQQkaLBVrMaKlASxktF2g5o5UCrWS0WqDVjNYKtJbReoHWM9oo0EZGmwXazGirQFsZbRdoO6OdAu1ktFug3Yz2CrRH70TvqEN3YvT75+TP+5nvxMNKwf0pCIWur4JwM5spVCAaRJtI9ZQ2IPBPg47UTKkGgb/wJlI7pQYE/ho/QsiCaFv61E+7J338Izj6MJi8+xSefnhzO/PTK1CmGt58G118zM+pDBloPtBk0PBBQwaKDxQZSD6QZAB8QN6UbNlAtmTg+cCTgeMDRwaWDywZ8JKSlJS8pCQlJS8pSUnJS0pSUvKSkpSUvKQkJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeElI/7QO/gOZ7bAksggAAA=='
+    actfts = 'H4sIAAAAAAAAA5WVS2sUQRRG/0rT6xTcqq5Xiwjm/X6sQxZjbBLRBBeOIEGIIEgWrtwI4lJEQsjGhU6Iv2bGcf6FVUUydW/d1SxT55sDfbpmsn9WP+/e1A+q+rh7dnT8qp6rT3snXTz4N7icXH4OB697L/rxZP+sPo1g+Ot8PPg+vvoyOb+IOJ7Vb+fuqGxkJSrZmMOTexiORDjAGxs3GvDGinCANjp5NPbo4NHYo5PHYI8OHoM9JnkM9pjgMdhjksdijwkeiz02eSz22OCx2GOTx2GPDR6HPS55HPa44HHY45LHY48LHo89Pnk9vjg8djjk6fFHh88bfAcxNXduz/sv0Qvfnz74+/X65lf/OMqfzD9ndF8geYzWijQQkaLBVrMaKlASxktF2g5o5UCrWS0WqDVjNYKtJbReoHWM9oo0EZGmwXazGirQFsZbRdoO6OdAu1ktFug3Yz2CrRH70TvqEN3YvT75+TP+5nvxMNKwf0pCIWur4JwM5spVCAaRJtI9ZQ2IPBPg47UTKkGgb/wJlI7pQYE/ho/QsiCaFv61E+7J338Izj6MJi8+xSefnhzO/PTK1CmGt58G118zM+pDBloPtBk0PBBQwaKDxQZSD6QZAB8QN6UbNlAtmTg+cCTgeMDRwaWDywZ8JKSlJS8pCQlJS8pSUnJS0pSUvKSkpSUvKQkJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeElI/7QO/gOZ7bAksggAAA='
 
     def homeContent(self, filter):
+        # **已修改**: 增加 /dm51/cn 路径前缀
         html = self.getpq(f"{self.host}/dm51/cn",headers=self.headers)
         result = {}
         filters = {}
@@ -102,6 +104,7 @@ class Spider(Spider):
             }
         params.update(ft)
         params = {k: v for k, v in params.items() if v != ""}
+        # **已修改**: 增加 /dm51/cn 路径前缀
         url=tid if 'http' in tid else f"{self.host}/dm51/cn/{tid}"
         data=self.getpq(url,headers=self.headers,params=params)
         result = {}
@@ -151,7 +154,8 @@ class Spider(Spider):
         return {'list': [vod]}
 
     def searchContent(self, key, quick, pg="1"):
-        data=self.getpq(f"{self.host}/cn/search/{key}",headers=self.headers,params={'page':pg})
+        # **已修改**: 增加 /dm51/cn 路径前缀
+        data=self.getpq(f"{self.host}/dm51/cn/search/{key}",headers=self.headers,params={'page':pg})
         return {'list': self.getlist(data('.grid-cols-2.md\\:grid-cols-3 .thumbnail.group')),'page':pg}
 
     def playerContent(self, flag, id, vipFlags):
@@ -184,6 +188,7 @@ class Spider(Spider):
         if params=={}:params=''
         if params:
             params=f"?{self.josn_to_params(params)}"
+        # 使用 fetch 请求
         response=self.fetch(f"{self.pcf}{url}{params}", headers=headers,verify=False)
         res=response.text
         if 300 <= response.status_code < 400:
@@ -304,7 +309,8 @@ class Spider(Spider):
             for i in data:
                 for j in i['json']['recomms']:
                     if j.get('id'):
-                        vdata.append(f"{j['values']['title_cn']}${self.host}/cn/{j['id']}")
+                        # **已修改**: 增加 /dm51/cn 路径前缀
+                        vdata.append(f"{j['values']['title_cn']}${self.host}/dm51/cn/{j['id']}")
             return '#'.join(vdata)
         except Exception as e:
             print(f"获取推荐失败: {e}")
@@ -312,7 +318,7 @@ class Spider(Spider):
 
     def getsign(self, text):
         message_bytes = text.encode('utf-8')
-        key_bytes = b'Ikkg568nlM51RHvldlPvc2GzZPE9R4XGzaH9Qj4zK9npbbbTly1gj9K4mgRn0QlV'
+        key_bytes = b'Ikkg568nlM51RHvldlPvc2GzZPE9R4XGZDH9Qj4zK9npbbbTly1gj9K4mgRn0QlV'
         h = HMAC.new(key_bytes, digestmod=SHA1)
         h.update(message_bytes)
         signature = h.hexdigest()
@@ -348,4 +354,3 @@ class Spider(Spider):
         except Exception as e:
             self.log(f"执行失败: {e}")
             return None
-
