@@ -80,7 +80,7 @@ class Spider(Spider):
         result = {}
 
         # ---------- 关键词列表：你只需维护这里 ----------
-        keyword_list = ["中国", "日本", "韩国", "素人", "大学生"]
+        keyword_list = ["中国", "BLACKED",  "素人", "大屁股"]
 
         # 手动定义一级分类（基础分类）
         cateManual = {
