@@ -76,6 +76,16 @@
 			"order_num": 5,
 			"ext": ""
 		},
+	  		{
+			"key": "XMVideo",
+			"name": "熊猫视频",
+			"type": 3,
+			"api": "csp_XMVideo",
+			"searchable": 1,
+			"filterable": 1,
+				"style":{"type":"rect","ratio":1.778},
+			"jar": "https://raw.githubusercontent.com/guot55/yg/main/jar/182.jar"
+		},
    		{
 			"key": "py_DSYS",
 			"name": "🔞🍑DSYS",
