@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜（最终优化版：Host自修复 + 关键词搜索 + 健壮选择器）
+# by @嗷呜（最终修复版：代理/Session 统一 + Host 自修复 + 关键词）
 import json
 import re
 import sys
@@ -19,7 +19,7 @@ except ImportError:
     # 兼容没有base.spider的环境
     class Spider:
         def getProxyUrl(self):
-            return "http://127.0.0.1:9978/proxy"
+            return "http://1.2.3.4:5555" # 示例
 
 # 继承基础 Spider 类
 class Spider(Spider):
@@ -34,8 +34,6 @@ class Spider(Spider):
             self.proxies = {}
 
         self.default_host = "https://www.pornhub.com"
-        # 首次启动强制获取 Host
-        self.host = self.gethost(force_update=True) 
         self.token = "" # 初始化 token，用于片单分页
 
         # 默认 headers
@@ -54,10 +52,16 @@ class Spider(Spider):
             'priority': 'u=1, i',
         }
         
-        # 创建 session 对象
+        # *** 关键修复：初始化顺序 ***
+        # 1. 先创建 session，并配置好代理
         self.session = Session()
         self.session.proxies.update(self.proxies)
-        # 初始更新 headers
+        self.session.headers.update(self.headers) # 先载入基础 headers
+        
+        # 2. 调用 gethost (它将使用已配置好代理的 self.session)
+        self.host = self.gethost(force_update=True) 
+        
+        # 3. 用获取到的 self.host 更新 session 的 referer/origin
         self.update_session_headers()
 
     def update_session_headers(self):
@@ -143,7 +147,6 @@ class Spider(Spider):
         # -------------- 关键词搜索分类 --------------
         # 关键词搜索的 type_id 格式为 /video/search?search=关键词
         if isinstance(tid, str) and tid.startswith('/video/search?'):
-            # tid 已经是完整的带参数的 search URL
             url_path = f'{tid}&page={pg}'
             data = self.getpq(url_path)
             if data is not None:
@@ -248,7 +251,6 @@ class Spider(Spider):
             tid_id = tid_real.split('playlist/')[-1].split('?')[0]
             token_val = getattr(self, "token", "")
             
-            # 第一页，必须确保 token 被获取
             if str(pg) == '1':
                 if self.get_playlist_token(tid_real): 
                     token_val = self.token
@@ -257,12 +259,10 @@ class Spider(Spider):
                 if hdata is not None:
                     vdata = self.getlist(hdata('#videoPlaylist .pcVideoListItem .phimage'))
             
-            # 非第一页，但 Token 缺失 (重试获取 token)
             if str(pg) != '1' and not token_val and tid_id:
                 if self.get_playlist_token(tid_real):
                     token_val = self.token
                 
-            # 请求分块数据 (适用于所有分页 > 1, 且 token 存在)
             if tid_id and token_val and str(pg) != '1':
                 data = self.getpq(f'/playlist/viewChunked?id={tid_id}&token={token_val}&page={pg}')
                 if data is not None:
@@ -293,7 +293,6 @@ class Spider(Spider):
         if data is None:
             return {'list': []}
 
-        # 标题/导演/备注等信息获取逻辑保持不变
         vn = data('meta[property="og:title"]').attr('content') or ''
         dtext = data('.userInfo .usernameWrap a')
         director_href = dtext.attr('href') if dtext else ''
@@ -312,7 +311,6 @@ class Spider(Spider):
             'vod_play_url': ''
         }
 
-        # 获取 JS 里的 mediaDefinitions（真实视频地址）
         js_content = data("#player script").eq(0).text() if data("#player script").eq(0) else ''
         plist = [f"{vn}${self.e64(f'{1}@@@@{url}')}"] 
 
@@ -375,6 +373,7 @@ class Spider(Spider):
     # m3u8 代理重写 ts 链接
     def m3Proxy(self, url):
         try:
+            # 统一使用 self.session
             ydata = self.session.get(url, allow_redirects=False, timeout=10)
             data = ydata.content.decode('utf-8')
             
@@ -405,6 +404,7 @@ class Spider(Spider):
     # ts 文件/图片代理
     def tsProxy(self, url):
         try:
+            # 统一使用 self.session
             data = self.session.get(url, stream=True, timeout=15)
             content_type = data.headers.get('Content-Type', 'application/octet-stream')
             return [200, content_type, data.content]
@@ -412,21 +412,34 @@ class Spider(Spider):
             print(f"tsProxy 请求失败: {e}")
             return [500, "text/plain", f"tsProxy error: {e}"]
 
-    # 自动获取 host（避免被地区跳转）
+    # 自动获取 host（*** 关键修复 ***）
     def gethost(self, force_update=False):
         if not force_update and hasattr(self, 'host') and self.host != self.default_host:
             return self.host
             
         try:
-            response = requests.get(self.default_host, headers=self.headers, proxies=self.proxies,
-                                    allow_redirects=False, timeout=10)
+            # 临时设置 headers 访问
+            temp_headers = self.headers.copy()
+            temp_headers.update({'referer': f'{self.default_host}/', 'origin': self.default_host})
+            
+            # *** 必须使用 self.session 来发起请求，以确保代理生效 ***
+            response = self.session.get(self.default_host, 
+                                        headers=temp_headers,
+                                        allow_redirects=False, 
+                                        timeout=10)
+            
             loc = response.headers.get('Location')
             if loc:
-                return loc[:-1] if loc.endswith('/') else loc
-            return self.default_host
+                new_host = loc[:-1] if loc.endswith('/') else loc
+                self.host = new_host
+            else:
+                self.host = self.default_host
         except Exception as e:
             print(f"获取主页失败: {str(e)}")
-            return self.default_host
+            self.host = self.default_host # 失败则回滚到默认
+        
+        print(f"Host updated to: {self.host}")
+        return self.host
 
     # Base64 编码
     def e64(self, text):
@@ -468,7 +481,7 @@ class Spider(Spider):
                 })
         return vlist
 
-    # 统一请求 + 解析（增加 Host 自修复和重试机制）
+    # 统一请求 + 解析（*** 关键修复：Host 自修复重试 ***）
     def getpq(self, path, retry_count=0):
         if path.startswith('http://') or path.startswith('https://'):
             url = path
@@ -482,28 +495,21 @@ class Spider(Spider):
             return pq(response.text)
             
         except requests.exceptions.HTTPError as e:
-            # 捕获 HTTP 错误（如 404, 301/302/403/400 等）
             print(f"请求失败 (HTTP {e.response.status_code}): {url}")
-            
-            # 如果是重定向或权限问题，并且没有重试过，尝试更新 Host 并重试
             if retry_count == 0 and e.response.status_code in [301, 302, 403, 400]:
-                print("Host likely outdated or request blocked. Attempting to update and retry...")
-                self.host = self.gethost(force_update=True)
-                self.update_session_headers()
-                return self.getpq(path, retry_count=1) # 增加重试计数
-            
+                print("Host likely outdated. Forcing update and retry...")
+                self.gethost(force_update=True) # 强制更新 self.host (会使用 session)
+                self.update_session_headers()   # 更新 session 的 headers
+                return self.getpq(path, retry_count=1) # 重试
             return None
             
         except requests.exceptions.RequestException as e:
-            # 捕获其他请求错误（如连接失败、超时等）
             print(f"请求失败 (Request Exception): {url}, {str(e)}")
-            
             if retry_count == 0:
-                print("Connection failed. Attempting to update Host and retry...")
-                self.host = self.gethost(force_update=True)
-                self.update_session_headers()
-                return self.getpq(path, retry_count=1) # 增加重试计数
-                
+                print("Connection failed. Forcing update and retry...")
+                self.gethost(force_update=True) # 强制更新 self.host (会使用 session)
+                self.update_session_headers()   # 更新 session 的 headers
+                return self.getpq(path, retry_count=1) # 重试
             return None
 
     # 代理图片/视频（若有代理）
