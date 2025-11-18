@@ -22,7 +22,7 @@ class Spider(Spider):
         {
             "": "",
             "ext": {
-               "site": "https://missav.ai/dm51/cn",
+               "site": "https://missav.ai",
                 "cfproxy": ""
             }
         }
@@ -61,7 +61,7 @@ class Spider(Spider):
     actfts = 'H4sIAAAAAAAAA5WVS2sUQRRG/0rT6xTcqq5Xiwjm/X6sQxZjbBLRBBeOIEGIIEgWrtwI4lJEQsjGhU6Iv2bGcf6FVUUydW/d1SxT55sDfbpmsn9WP+/e1A+q+rh7dnT8qp6rT3snXTz4N7icXH4OB697L/rxZP+sPo1g+Ot8PPg+vvoyOb+IOJ7Vb+fuqGxkJSrZmMOTexiORDjAGxs3GvDGinCANjp5NPbo4NHYo5PHYI8OHoM9JnkM9pjgMdhjksdijwkeiz02eSz22OCx2GOTx2GPDR6HPS55HPa44HHY45LHY48LHo89Pnk89vjg8djjk6fFHh88bfAcxNXduz/sv0Qvfnz74+/X65lf/OMqfzD9ndF8geYzWijQQkaLBVrMaKlASxktF2g5o5UCrWS0WqDVjNYKtJbReoHWM9oo0EZGmwXazGirQFsZbRdoO6OdAu1ktFug3Yz2CrRH70TvqEN3YvT75+TP+5nvxMNKwf0pCIWur4JwM5spVCAaRJtI9ZQ2IPBPg47UTKkGgb/wJlI7pQYE/ho/QsiCaFv61E+7J338Izj6MJi8+xSefnhzO/PTK1CmGt58G118zM+pDBloPtBk0PBBQwaKDxQZSD6QZAB8QN6UbNlAtmTg+cCTgeMDRwaWDywZ8JKSlJS8pCQlJS8pSUnJS0pSUvKSkpSUvKQkJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeEkgJYGXBFISeElI/7QO/gOZ7bAksggAAA=='
 
     def homeContent(self, filter):
-        html = self.getpq(f"{self.host}/cn",headers=self.headers)
+        html = self.getpq(f"{self.host}/dm51/cn",headers=self.headers)
         result = {}
         filters = {}
         classes=[]
@@ -102,7 +102,7 @@ class Spider(Spider):
             }
         params.update(ft)
         params = {k: v for k, v in params.items() if v != ""}
-        url=tid if 'http' in tid else f"{self.host}/cn/{tid}"
+        url=tid if 'http' in tid else f"{self.host}/dm51/cn/{tid}"
         data=self.getpq(url,headers=self.headers,params=params)
         result = {}
         if tid in ['makers', 'genres']:
