@@ -101,7 +101,7 @@ class Spider(Spider):
                     'vod_year': f'videos:{i.get("videoCount")}',
                     'vod_tag': 'folder',
                     'vod_remarks': f'subscribers:{i["subscriptionModel"].get("subscribers")}',
-                    'style': {'ratio': 1.33, 'type': 'rect'}
+                    'style': {'ratio': 1, 'type': 'rect'}
                 })
         elif tid == '/categories':
             result['pagecount'] = pg
