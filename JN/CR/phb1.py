@@ -16,7 +16,7 @@ from base.spider import Spider
 # 用户可维护：一级关键字列表 & 映射（中文->实际搜索词）
 # 只需修改下面两项即可添加/调整一级分类与实际搜索词
 # ---------------------------
-# 【修改点 1】: 从 keyword_list 中移除 "站内搜索"
+# 【保持】: 从 keyword_list 中移除 "站内搜索"
 keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
 
@@ -100,7 +100,7 @@ class Spider(Spider):
             "频道": "/channels",
             "分类": "/categories",
             "明星": "/pornstars",
-            # 【修改点 2】: 手动添加 "站内搜索" 分类，使其位于 "明星" 之后
+            # 【修改点 1】: 手动添加 "站内搜索" 分类，位于 "明星" 之后
             # 使用 '*' 作为 type_id，强制 TVbox 识别为搜索入口
             "站内搜索": "*" 
         }
@@ -370,21 +370,26 @@ class Spider(Spider):
 
     # 关键词搜索
     def searchContent(self, key, quick, pg="1"):
-        # key: 客户端传入的搜索关键词
+        # 【修改点 2】: 明确检查 key 是否为空，如果为空，则返回一个带搜索参数的空列表。
+        # 当 type_id='*' 被点击时，客户端会直接调用 searchContent(key="")。
+        # 返回空列表通常可以触发 TVbox 弹出输入框。
+        if not key:
+             return {'list': [], 'page': 0, 'pagecount': 0, 'total': 0, 'limit': 90}
         
+        # key 传入可以是映射后的真实关键字，也可以是用户输入的搜索词
         # 如果是映射后的关键字，使用映射结果；如果是用户输入的词，直接使用 key
-        # 这里主要处理 keyword_list 传来的映射搜索词
         real_key = keyword_map.get(key, key)
         final_key = real_key if real_key else key
 
-        # 【修改点 3】: 如果最终关键词为空，则返回空列表。
-        # 当 type_id='*' 被点击时，客户端会直接调用 searchContent(key="")，
-        # 此时返回空列表，客户端就会弹出输入框。
-        if not final_key:
-            return {'list': []}
-
         data = self.getpq(f'/video/search?search={final_key}&page={pg}')
-        return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))}
+        # 搜索结果需要返回完整的分页信息，即使是搜索页本身
+        return {
+            'list': self.getlist(data('#videoSearchResult .pcVideoListItem .phimage')),
+            'page': pg,
+            'pagecount': 9999,
+            'limit': 90,
+            'total': 999999
+        }
 
     # 播放器接口
     def playerContent(self, flag, id, vipFlags):
