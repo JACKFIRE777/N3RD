@@ -156,15 +156,22 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # ---------------- 片单 ----------------
+
+            # ---------------- 片单 ----------------
         if tid == '/playlists':
             data = self.getpq(f'{tid}?page={pg}')
             vhtml = data('#playListSection li')
             for i in vhtml.items():
+                # --- 修改开始 ---
+                # 很多网站为了防爬虫或懒加载，真实图片在 data-src 里
+                # 这里做一个逻辑或：先拿 data-src，拿不到再拿 src
+                pic_url = i('.largeThumb').attr('data-src') or i('.largeThumb').attr('src')
+                # --- 修改结束 ---
+
                 vdata.append({
                     'vod_id': 'playlists_click_' + i('.thumbnail-info-wrapper .display-block a').attr('href'),
                     'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
-                    'vod_pic': self.proxy(i('.largeThumb').attr('src')),
+                    'vod_pic': self.proxy(pic_url),  # 使用修改后的变量
                     'vod_tag': 'folder',
                     'vod_remarks': i('.playlist-videos .number').text(),
                     'style': {"type": "rect", "ratio": 1.33}
