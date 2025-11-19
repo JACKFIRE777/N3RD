@@ -180,7 +180,7 @@ class Spider(Spider):
                     'vod_name': i.get('name'),
                     'vod_pic': '', # 无图片
                     'vod_tag': 'folder',
-                    'style': {'ratio': 1.33, 'type': 'rect'}
+                    'style': {'ratio': 1.778, 'type': 'rect'}
                 })
 
         # 针对 '明星' 分类
@@ -195,7 +195,7 @@ class Spider(Spider):
                     'vod_pic': self.proxy(i.get('imageThumbUrl')), # 对图片URL进行代理处理
                     'vod_remarks': i.get('translatedCountryName'), # 备注：国家/地区
                     'vod_tag': 'folder',
-                    'style': {'ratio': 1.33, 'type': 'rect'}
+                    'style': {'ratio': 1.778, 'type': 'rect'}
                 })
 
         # 针对 '类别' 的二级分类（从 /categories 点击进入的子类别）
@@ -212,7 +212,7 @@ class Spider(Spider):
                             'vod_name': j.get('name'),
                             'vod_pic': self.proxy(j.get('thumb')),
                             'vod_tag': 'folder',
-                            'style': {'ratio': 1.33, 'type': 'rect'}
+                            'style': {'ratio': 1.778, 'type': 'rect'}
                         })
 
         result['list'] = vdata
@@ -403,7 +403,7 @@ class Spider(Spider):
                 # 视频备注：时长
                 'vod_remarks': i('.role-pop div[data-role="video-duration"]').text(),
                 # 样式
-                'style': {'ratio': 1.33, 'type': 'rect'}
+                'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
