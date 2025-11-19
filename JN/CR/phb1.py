@@ -179,17 +179,38 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # ---------------- 频道 ----------------
+# ---------------- 频道 ----------------
         if tid == '/channels':
             data = self.getpq(f'{tid}?o=rk&page={pg}')
             vhtml = data('#filterChannelsSection li .description')
             for i in vhtml.items():
+                
+                # --- 新增：数字转换逻辑开始 ---
+                # 1. 获取原始文本，例如 "视频播放量 10,068,188,300"
+                raw_views = i('.descriptionContainer ul li').eq(-1).text()
+                
+                # 2. 提取纯数字（去掉逗号、文字等），变成 "10068188300"
+                # 使用列表推导式过滤出数字字符
+                digits = ''.join([c for c in raw_views if c.isdigit()])
+                
+                # 3. 进行单位转换
+                view_str = raw_views # 默认保留原样作为兜底
+                if digits:
+                    num = int(digits)
+                    if num >= 100000000: # 大于1亿
+                        view_str = f"{num / 100000000:.2f}亿"
+                    elif num >= 10000:   # 大于1万
+                        view_str = f"{num / 10000:.2f}万"
+                    else:
+                        view_str = str(num) # 小于1万直接显示数字
+                # --- 新增：数字转换逻辑结束 ---
+
                 vdata.append({
                     'vod_id': 'director_click_' + i('.avatar a').attr('href'),
                     'vod_name': i('.avatar img').attr('alt'),
                     'vod_pic': self.proxy(i('.avatar img').attr('src')),
                     'vod_tag': 'folder',
-                    'vod_remarks': i('.descriptionContainer ul li').eq(-1).text(),
+                    'vod_remarks': view_str,  # 这里使用处理后的变量 view_str
                     'style': {"type": "rect", "ratio": 1.33}
                 })
             result['list'] = vdata
