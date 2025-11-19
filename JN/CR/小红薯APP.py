@@ -52,7 +52,7 @@ class Spider(Spider):
         vdata=self.aes(data)
         for k in vdata['data']:
             videos.append({"vod_id": k['videoId'], 'vod_name': k.get('title'), 'vod_pic': self.getProxyUrl() + '&url=' + k['coverImg'],
-                           'vod_remarks': self.dtim(k.get('playTime')),'style': {"type": "rect", "ratio": 1.33}})
+                           'vod_remarks': self.dtim(k.get('playTime')),'style': {"type": "rect", "ratio": 1.778}})
         result["list"] = videos
         result["page"] = pg
         result["pagecount"] = 9999
