@@ -231,19 +231,50 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # ---------------- 明星 ----------------
+# ---------------- 明星 ----------------
         if tid == '/pornstars':
-            # 修改点：将 o=t 改为 o=ms
+            # 【优化】这里删除了 import re，因为文件开头已经导入过了
+            
             data = self.getpq(f'{tid}?o=ms&page={pg}')
             vhtml = data('#popularPornstars .performerCard .wrap')
+            
             for i in vhtml.items():
+                # --- 播放量 B/M/K 换算逻辑 ---
+                raw_views = i('.performerVideosViewsCount span').eq(-1).text()
+                clean_str = raw_views.replace(',', '').replace(' ', '').upper()
+                
+                # 直接使用 re 即可
+                match = re.search(r'([\d\.]+)([BMK]?)', clean_str)
+                
+                num = 0.0
+                if match:
+                    value = float(match.group(1))
+                    unit = match.group(2)
+                    
+                    if unit == 'B':      # Billion 10亿
+                        num = value * 1000000000
+                    elif unit == 'M':    # Million 百万
+                        num = value * 1000000
+                    elif unit == 'K':    # Kilo 千
+                        num = value * 1000
+                    else:                
+                        num = value
+                
+                if num >= 100000000:
+                    view_str = f"播放量：{num / 100000000:.2f}亿"
+                elif num >= 10000:
+                    view_str = f"播放量：{num / 10000:.2f}万"
+                else:
+                    view_str = f"播放量：{int(num)}" if num > 0 else raw_views
+                # ---------------------------------------
+
                 vdata.append({
                     'vod_id': 'pornstars_click_' + i('a').attr('href'),
                     'vod_name': i('.performerCardName').text(),
                     'vod_pic': self.proxy(i('a img').attr('src')),
                     'vod_tag': 'folder',
                     'vod_year': i('.performerVideosViewsCount span').eq(0).text(),
-                    'vod_remarks': i('.performerVideosViewsCount span').eq(-1).text(),
+                    'vod_remarks': view_str,
                     'style': {"type": "rect", "ratio": 1}
                 })
             result['list'] = vdata
