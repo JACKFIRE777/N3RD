@@ -165,7 +165,7 @@ class Spider(Spider):
             for item in data1:
                 videos.append({"vod_id": id[0] + "@@" + str(item.get('tags')), 'vod_name': item.get('name'),
                                'vod_pic': self.imgs(item.get('ico')), 'vod_tag': 'folder',
-                               'style': {"type": "rect", "ratio": 1.33}})
+                               'style': {"type": "rect", "ratio": 1.778}})
         elif tid == 'actor' and len(id) == 1:
             # 处理一级 'actor' 结果（返回演员列表）
             for item in data1:
@@ -178,7 +178,7 @@ class Spider(Spider):
                 if item.get('_id'): # 检查是否有视频ID（筛选掉非视频数据）
                     videos.append({"vod_id": str(item.get('id')), 'vod_name': item.get('title'),
                                    'vod_pic': self.imgs(item.get('cover_thumb') or item.get('cover_full')),
-                                   'vod_remarks': item.get('good'), 'style': {"type": "rect", "ratio": 1.33}})
+                                   'vod_remarks': item.get('good'), 'style': {"type": "rect", "ratio": 1.778}})
                                    
         # 将视频列表添加到结果中
         result["list"] = videos
