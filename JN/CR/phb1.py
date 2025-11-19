@@ -16,7 +16,8 @@ from base.spider import Spider
 # 用户可维护：一级关键字列表 & 映射（中文->实际搜索词）
 # 只需修改下面两项即可添加/调整一级分类与实际搜索词
 # ---------------------------
-keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
+# 【修改点】: 在列表末尾增加了 "站内搜索" 作为一级分类
+keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股", "站内搜索"]
 
 
 keyword_map = {
@@ -29,7 +30,9 @@ keyword_map = {
     "音乐": "porn music video", 
     "奶头乐": "male nipple play", 
     # 演示示例：中文 '大屁股' 实际搜索使用英文 'big ass'
-    "大屁股": "big ass"
+    "大屁股": "big ass",
+    # 【修改点】: 站内搜索的实际搜索词为空，用于引导客户端进入搜索模式
+    "站内搜索": "" 
 }
 # ---------------------------
 
@@ -140,12 +143,13 @@ class Spider(Spider):
         }
 
         # ---------------- 如果是 keyword 类型的一级分类，转换为搜索 ----------------
-        # 例如 type_id 为 keyword__大屁股
+        # 例如 type_id 为 keyword__大屁股 或 keyword__站内搜索
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
             # 从映射中获取实际搜索关键词（若无映射则使用原始 kw）
             real_kw = keyword_map.get(kw, kw)
             # 复用搜索接口（保证分页等逻辑）
+            # 对于 "站内搜索"，real_kw 为空，客户端会提示用户输入搜索词
             return self.searchContent(real_kw, quick=False, pg=pg)
 
         # ---------------- 视频分类 ----------------
@@ -371,7 +375,15 @@ class Spider(Spider):
         # 如果用户直接点击 keyword__xxx，会在 categoryContent 先将 keyword 映射为 real_kw 并传入到这里
         # 这里仍做一层防护映射（如果传入的是显示词）
         real_key = keyword_map.get(key, key)
-        data = self.getpq(f'/video/search?search={real_key}&page={pg}')
+        # 如果 real_key 为空字符串，说明是“站内搜索”被点击，此时客户端会要求用户输入
+        # 只要 key 不为空，就执行搜索
+        if not real_key and not key:
+             return {'list': []}
+        
+        # 优先使用 real_key（映射后的），如果 real_key 为空，则使用原始 key（用户输入的搜索词）
+        final_key = real_key if real_key else key
+
+        data = self.getpq(f'/video/search?search={final_key}&page={pg}')
         return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))}
 
     # 播放器接口
