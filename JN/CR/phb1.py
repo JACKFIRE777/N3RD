@@ -16,8 +16,8 @@ from base.spider import Spider
 # 用户可维护：一级关键字列表 & 映射（中文->实际搜索词）
 # 只需修改下面两项即可添加/调整一级分类与实际搜索词
 # ---------------------------
-# 【修改点】: 在列表末尾增加了 "站内搜索" 作为一级分类
-keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股", "站内搜索"]
+# 【修改点 1】: 从 keyword_list 中移除 "站内搜索"
+keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
 
 keyword_map = {
@@ -30,9 +30,7 @@ keyword_map = {
     "音乐": "porn music video", 
     "奶头乐": "male nipple play", 
     # 演示示例：中文 '大屁股' 实际搜索使用英文 'big ass'
-    "大屁股": "big ass",
-    # 【修改点】: 站内搜索的实际搜索词为空，用于引导客户端进入搜索模式
-    "站内搜索": "" 
+    "大屁股": "big ass"
 }
 # ---------------------------
 
@@ -95,26 +93,28 @@ class Spider(Spider):
     def homeContent(self, filter):
         result = {}
 
-        # 手动定义一级分类（保留原有静态分类）
+        # 手动定义静态一级分类
         cateManual = {
             "视频": "/video",
             "片单": "/playlists",
             "频道": "/channels",
             "分类": "/categories",
-            "明星": "/pornstars"
+            "明星": "/pornstars",
+            # 【修改点 2】: 手动添加 "站内搜索" 分类，使其位于 "明星" 之后
+            "站内搜索": "search_entry" # 使用一个特定的ID
         }
 
         classes = []
         filters = {}
 
-        # 生成原有结构
+        # 生成原有静态结构 + 站内搜索
         for k in cateManual:
             classes.append({
                 'type_name': k,
                 'type_id': cateManual[k]
             })
 
-        # 🔥 自动加入 keyword_list 为一级分类（易维护）
+        # 🔥 自动加入 keyword_list 为一级分类（位于 "站内搜索" 之后）
         # type_id 使用 keyword__{kw} 形式以便在 categoryContent 区分
         for kw in keyword_list:
             classes.append({
@@ -142,14 +142,18 @@ class Spider(Spider):
             'total': 999999
         }
 
+        # ---------------- 【修改点 3】: 站内搜索入口逻辑 ----------------
+        if tid == 'search_entry':
+            # 客户端在没有关键词时，会传入空关键词（或第一个关键词），
+            # 此时返回一个空列表，触发客户端输入关键词
+            return self.searchContent("", quick=False, pg=pg)
+
         # ---------------- 如果是 keyword 类型的一级分类，转换为搜索 ----------------
-        # 例如 type_id 为 keyword__大屁股 或 keyword__站内搜索
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
             # 从映射中获取实际搜索关键词（若无映射则使用原始 kw）
             real_kw = keyword_map.get(kw, kw)
             # 复用搜索接口（保证分页等逻辑）
-            # 对于 "站内搜索"，real_kw 为空，客户端会提示用户输入搜索词
             return self.searchContent(real_kw, quick=False, pg=pg)
 
         # ---------------- 视频分类 ----------------
@@ -371,17 +375,16 @@ class Spider(Spider):
 
     # 关键词搜索
     def searchContent(self, key, quick, pg="1"):
-        # key 传入可以是映射后的真实关键字，也可以是直接的搜索词
-        # 如果用户直接点击 keyword__xxx，会在 categoryContent 先将 keyword 映射为 real_kw 并传入到这里
-        # 这里仍做一层防护映射（如果传入的是显示词）
-        real_key = keyword_map.get(key, key)
-        # 如果 real_key 为空字符串，说明是“站内搜索”被点击，此时客户端会要求用户输入
-        # 只要 key 不为空，就执行搜索
-        if not real_key and not key:
-             return {'list': []}
+        # key 传入可以是映射后的真实关键字，也可以是用户输入的搜索词
         
-        # 优先使用 real_key（映射后的），如果 real_key 为空，则使用原始 key（用户输入的搜索词）
+        # 如果是映射后的关键字，使用映射结果；如果是用户输入的词，直接使用 key
+        real_key = keyword_map.get(key, key)
         final_key = real_key if real_key else key
+
+        # 【修改点 4】: 如果最终关键词为空，则返回空列表。
+        # 这是为了响应 "站内搜索" 第一次被点击时，客户端没有输入关键词的请求。
+        if not final_key:
+            return {'list': []}
 
         data = self.getpq(f'/video/search?search={final_key}&page={pg}')
         return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))}
