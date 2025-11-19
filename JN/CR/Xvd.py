@@ -108,7 +108,7 @@ class Spider(Spider):
                     'vod_pic': self.proxy(img),
                     'vod_tag': 'folder',
                     'vod_remarks': i('.thumb-under .profile-counts').text(),
-                    'style': {'ratio': 1.33, 'type': 'rect'}
+                    'style': {'ratio': 1.778, 'type': 'rect'}
                 })
         elif tid=='/tags':
             result['pagecount'] = pg
@@ -122,7 +122,7 @@ class Spider(Spider):
                         'vod_pic': '',
                         'vod_tag': 'folder',
                         'vod_remarks': i('.navbadge').text(),
-                        'style': {'ratio': 1.33, 'type': 'rect'}
+                        'style': {'ratio': 1.778, 'type': 'rect'}
                     })
         elif 'channels_click' in tid:
             tid=tid.split('click_')[-1]
@@ -134,7 +134,7 @@ class Spider(Spider):
                     'vod_pic': self.proxy(i.get('il')),
                     'vod_year': i.get('n'),
                     'vod_remarks': i.get('d'),
-                    'style': {'ratio': 1.33, 'type': 'rect'}
+                    'style': {'ratio': 1.778, 'type': 'rect'}
                 })
         result['list'] = vdata
         return result
@@ -236,7 +236,7 @@ class Spider(Spider):
                 'vod_pic': self.proxy(a('img').attr('data-src')),
                 'vod_year': a('.video-hd-mark').text(),
                 'vod_remarks': b('.duration').text(),
-                'style': {'ratio': 1.33, 'type': 'rect'}
+                'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
