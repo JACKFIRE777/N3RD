@@ -14,9 +14,8 @@ from base.spider import Spider
 
 # ---------------------------
 # 用户可维护：一级关键字列表 & 映射（中文->实际搜索词）
-# 只需修改下面两项即可添加/调整一级分类与实际搜索词
+# 只需修改下面两项即可添加/调整一级分类与实际分类
 # ---------------------------
-# 【保持】: 从 keyword_list 中移除 "站内搜索"
 keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
 
@@ -93,29 +92,42 @@ class Spider(Spider):
     def homeContent(self, filter):
         result = {}
 
-        # 手动定义静态一级分类
+        # 手动定义一级分类（保留原有静态分类）
         cateManual = {
             "视频": "/video",
             "片单": "/playlists",
             "频道": "/channels",
             "分类": "/categories",
-            "明星": "/pornstars",
-            # 【修改点 1】: 手动添加 "站内搜索" 分类，位于 "明星" 之后
-            # 使用 '*' 作为 type_id，强制 TVbox 识别为搜索入口
-            "站内搜索": "*" 
+            "明星": "/pornstars"
         }
+        
+        # 🔥 新增筛选配置：视频分类的排序选项
+        video_filters = {
+            'o': [
+                {'key': '', 'name': '最新精选'},
+                {'key': 'mv', 'name': '最多次观看'},
+                {'key': 'tr', 'name': '最高分'},
+                {'key': 'ht', 'name': '最热门'},
+                {'key': 'lg', 'name': '最长'},
+                {'key': 'cm', 'name': '最新'}
+            ]
+        }
+
 
         classes = []
         filters = {}
 
-        # 生成原有静态结构 + 站内搜索
+        # 生成原有结构
         for k in cateManual:
             classes.append({
                 'type_name': k,
                 'type_id': cateManual[k]
             })
+            # 仅为 '视频' 添加筛选器
+            if k == '视频':
+                filters[cateManual[k]] = video_filters
 
-        # 🔥 自动加入 keyword_list 为一级分类（位于 "站内搜索" 之后）
+        # 🔥 自动加入 keyword_list 为一级分类（易维护）
         # type_id 使用 keyword__{kw} 形式以便在 categoryContent 区分
         for kw in keyword_list:
             classes.append({
@@ -144,6 +156,7 @@ class Spider(Spider):
         }
 
         # ---------------- 如果是 keyword 类型的一级分类，转换为搜索 ----------------
+        # 例如 type_id 为 keyword__大屁股
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
             # 从映射中获取实际搜索关键词（若无映射则使用原始 kw）
@@ -153,9 +166,42 @@ class Spider(Spider):
 
         # ---------------- 视频分类 ----------------
         if tid == '/video' or '_this_video' in tid:
-            pagestr = '&' if '?' in tid else '?'
-            tid = tid.split('_this_video')[0]
-            data = self.getpq(f'{tid}{pagestr}page={pg}')
+            
+            # --- 🔥 新增：处理筛选参数 ---
+            # tid 格式可能是 /video 或 /video?c=28_this_video
+            base_tid = tid.split('_this_video')[0] 
+            
+            # 初始化查询参数
+            params = {}
+            if '?' in base_tid:
+                # 提取 tid 中已有的参数，如 c=28
+                query_string = base_tid.split('?')[1]
+                for p in query_string.split('&'):
+                    if '=' in p:
+                        key, value = p.split('=', 1)
+                        params[key] = value
+
+            # 添加分页参数
+            params['page'] = pg
+
+            # 添加筛选参数（extend是字典）
+            if extend and 'o' in extend:
+                params['o'] = extend['o']
+
+            # 构造新的 URL
+            query_parts = []
+            for key, value in params.items():
+                # 排除空值
+                if value != '':
+                    query_parts.append(f"{key}={value}")
+
+            query_string = '&'.join(query_parts)
+            
+            # 完整请求路径
+            request_path = f"{base_tid.split('?')[0]}?{query_string}"
+            # ------------------------------------
+
+            data = self.getpq(request_path)
             vdata = self.getlist(data('#videoCategory .pcVideoListItem'))
             result['list'] = vdata
             return result
@@ -370,26 +416,12 @@ class Spider(Spider):
 
     # 关键词搜索
     def searchContent(self, key, quick, pg="1"):
-        # 【修改点 2】: 明确检查 key 是否为空，如果为空，则返回一个带搜索参数的空列表。
-        # 当 type_id='*' 被点击时，客户端会直接调用 searchContent(key="")。
-        # 返回空列表通常可以触发 TVbox 弹出输入框。
-        if not key:
-             return {'list': [], 'page': 0, 'pagecount': 0, 'total': 0, 'limit': 90}
-        
-        # key 传入可以是映射后的真实关键字，也可以是用户输入的搜索词
-        # 如果是映射后的关键字，使用映射结果；如果是用户输入的词，直接使用 key
+        # key 传入可以是映射后的真实关键字，也可以是直接的搜索词
+        # 如果用户直接点击 keyword__xxx，会在 categoryContent 先将 keyword 映射为 real_kw 并传入到这里
+        # 这里仍做一层防护映射（如果传入的是显示词）
         real_key = keyword_map.get(key, key)
-        final_key = real_key if real_key else key
-
-        data = self.getpq(f'/video/search?search={final_key}&page={pg}')
-        # 搜索结果需要返回完整的分页信息，即使是搜索页本身
-        return {
-            'list': self.getlist(data('#videoSearchResult .pcVideoListItem .phimage')),
-            'page': pg,
-            'pagecount': 9999,
-            'limit': 90,
-            'total': 999999
-        }
+        data = self.getpq(f'/video/search?search={real_key}&page={pg}')
+        return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))}
 
     # 播放器接口
     def playerContent(self, flag, id, vipFlags):
