@@ -16,8 +16,7 @@ from base.spider import Spider
 # 用户可维护：一级关键字列表 & 映射（中文->实际搜索词）
 # 只需修改下面两项即可添加/调整一级分类与实际搜索词
 # ---------------------------
-keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "大屁股"]
-
+keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
 
 keyword_map = {
@@ -26,6 +25,9 @@ keyword_map = {
     "韩国": "韩国",
     "BLACKED": "BLACKED",
     "素人": "素人",
+     "合辑": "Compilation",
+    "音乐": "porn music video", 
+    "奶头乐": "male nipple play", 
     # 演示示例：中文 '大屁股' 实际搜索使用英文 'big ass'
     "大屁股": "big ass"
 }
@@ -155,34 +157,61 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # ---------------- 片单 ----------------
+
+# ---------------- 片单 ----------------
         if tid == '/playlists':
             data = self.getpq(f'{tid}?page={pg}')
             vhtml = data('#playListSection li')
             for i in vhtml.items():
+                # --- 修改重点 ---
+                # 源码显示真实地址在 data-thumb_url 中
+                # 逻辑：优先取 data-thumb_url，如果没有再取 src
+                pic_url = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
+                # --- 修改结束 ---
+
                 vdata.append({
                     'vod_id': 'playlists_click_' + i('.thumbnail-info-wrapper .display-block a').attr('href'),
                     'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
-                    'vod_pic': self.proxy(i('.largeThumb').attr('src')),
+                    'vod_pic': self.proxy(pic_url),  # 使用修正后的变量
                     'vod_tag': 'folder',
                     'vod_remarks': i('.playlist-videos .number').text(),
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
 
-        # ---------------- 频道 ----------------
+# ---------------- 频道 ----------------
         if tid == '/channels':
             data = self.getpq(f'{tid}?o=rk&page={pg}')
             vhtml = data('#filterChannelsSection li .description')
             for i in vhtml.items():
+                
+                # --- 数字转换逻辑 ---
+                raw_views = i('.descriptionContainer ul li').eq(-1).text()
+                # 提取纯数字
+                digits = ''.join([c for c in raw_views if c.isdigit()])
+                
+                view_str = raw_views # 兜底默认值
+                if digits:
+                    num = int(digits)
+                    if num >= 100000000:
+                        # 修改点：增加前缀
+                        view_str = f"播放量：{num / 100000000:.2f}亿"
+                    elif num >= 10000:
+                        # 修改点：增加前缀
+                        view_str = f"播放量：{num / 10000:.2f}万"
+                    else:
+                        # 修改点：增加前缀
+                        view_str = f"播放量：{num}"
+                # ------------------
+
                 vdata.append({
                     'vod_id': 'director_click_' + i('.avatar a').attr('href'),
                     'vod_name': i('.avatar img').attr('alt'),
                     'vod_pic': self.proxy(i('.avatar img').attr('src')),
                     'vod_tag': 'folder',
-                    'vod_remarks': i('.descriptionContainer ul li').eq(-1).text(),
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'vod_remarks': view_str, # 显示如：播放量：100.68亿
+                    'style': {"type": "rect", "ratio": 1}
                 })
             result['list'] = vdata
             return result
@@ -198,24 +227,56 @@ class Spider(Spider):
                     'vod_name': i('a').attr('alt'),
                     'vod_pic': self.proxy(i('a img').attr('src')),
                     'vod_tag': 'folder',
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
 
-        # ---------------- 明星 ----------------
+# ---------------- 明星 ----------------
         if tid == '/pornstars':
-            data = self.getpq(f'{tid}?o=t&page={pg}')
+            # 【优化】这里删除了 import re，因为文件开头已经导入过了
+            
+            data = self.getpq(f'{tid}?o=ms&page={pg}')
             vhtml = data('#popularPornstars .performerCard .wrap')
+            
             for i in vhtml.items():
+                # --- 播放量 B/M/K 换算逻辑 ---
+                raw_views = i('.performerVideosViewsCount span').eq(-1).text()
+                clean_str = raw_views.replace(',', '').replace(' ', '').upper()
+                
+                # 直接使用 re 即可
+                match = re.search(r'([\d\.]+)([BMK]?)', clean_str)
+                
+                num = 0.0
+                if match:
+                    value = float(match.group(1))
+                    unit = match.group(2)
+                    
+                    if unit == 'B':      # Billion 10亿
+                        num = value * 1000000000
+                    elif unit == 'M':    # Million 百万
+                        num = value * 1000000
+                    elif unit == 'K':    # Kilo 千
+                        num = value * 1000
+                    else:                
+                        num = value
+                
+                if num >= 100000000:
+                    view_str = f"播放量：{num / 100000000:.2f}亿"
+                elif num >= 10000:
+                    view_str = f"播放量：{num / 10000:.2f}万"
+                else:
+                    view_str = f"播放量：{int(num)}" if num > 0 else raw_views
+                # ---------------------------------------
+
                 vdata.append({
                     'vod_id': 'pornstars_click_' + i('a').attr('href'),
                     'vod_name': i('.performerCardName').text(),
                     'vod_pic': self.proxy(i('a img').attr('src')),
                     'vod_tag': 'folder',
                     'vod_year': i('.performerVideosViewsCount span').eq(0).text(),
-                    'vod_remarks': i('.performerVideosViewsCount span').eq(-1).text(),
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'vod_remarks': view_str,
+                    'style': {"type": "rect", "ratio": 1, "width": "150%"}
                 })
             result['list'] = vdata
             return result
@@ -404,7 +465,7 @@ class Spider(Spider):
                 'vod_name': title,
                 'vod_pic': self.proxy(img),
                 'vod_remarks': remarks,
-                'style': {'ratio': 1.33, 'type': 'rect'}
+                'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
