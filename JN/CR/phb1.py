@@ -206,7 +206,8 @@ class Spider(Spider):
 
         # ---------------- 明星 ----------------
         if tid == '/pornstars':
-            data = self.getpq(f'{tid}?o=t&page={pg}')
+            # 修改点：将 o=t 改为 o=ms
+            data = self.getpq(f'{tid}?o=ms&page={pg}')
             vhtml = data('#popularPornstars .performerCard .wrap')
             for i in vhtml.items():
                 vdata.append({
