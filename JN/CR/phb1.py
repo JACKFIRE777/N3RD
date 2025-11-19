@@ -14,7 +14,7 @@ from base.spider import Spider
 
 # ---------------------------
 # 用户可维护：一级关键字列表 & 映射（中文->实际搜索词）
-# 只需修改下面两项即可添加/调整一级分类与实际分类
+# 只需修改下面两项即可添加/调整一级分类与实际搜索词
 # ---------------------------
 keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
@@ -101,7 +101,7 @@ class Spider(Spider):
             "明星": "/pornstars"
         }
         
-        # 🔥 新增筛选配置：视频分类的排序选项
+        # 🔥 修改筛选配置：视频分类的排序选项，添加 type: select
         video_filters = {
             'o': [
                 {'key': '', 'name': '最新精选'},
@@ -110,7 +110,14 @@ class Spider(Spider):
                 {'key': 'ht', 'name': '最热门'},
                 {'key': 'lg', 'name': '最长'},
                 {'key': 'cm', 'name': '最新'}
-            ]
+            ],
+            # 为筛选器字段 o 添加样式，强制以下拉框形式展示
+            'ext': {
+                'o': {
+                    'name': '排序', # 可以在这里添加筛选器的显示名称
+                    'type': 'select', # 关键修改：强制以下拉选择框形式展示
+                }
+            }
         }
 
 
