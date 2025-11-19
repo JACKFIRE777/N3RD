@@ -16,7 +16,9 @@ from base.spider import Spider
 # 用户可维护：一级关键字列表 & 映射（中文->实际搜索词）
 # 只需修改下面两项即可添加/调整一级分类与实际搜索词
 # ---------------------------
-keyword_list = ["中国", "日本","韩国","BLACKED", "素人", "大屁股"]
+keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "大屁股"]
+
+
 
 keyword_map = {
     "中国": "中国",
