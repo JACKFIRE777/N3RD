@@ -174,7 +174,7 @@ class Spider(Spider):
                     'vod_pic': self.proxy(pic_url),  # 使用修正后的变量
                     'vod_tag': 'folder',
                     'vod_remarks': i('.playlist-videos .number').text(),
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
@@ -226,7 +226,7 @@ class Spider(Spider):
                     'vod_name': i('a').attr('alt'),
                     'vod_pic': self.proxy(i('a img').attr('src')),
                     'vod_tag': 'folder',
-                    'style': {"type": "rect", "ratio": 1.33}
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
@@ -433,7 +433,7 @@ class Spider(Spider):
                 'vod_name': title,
                 'vod_pic': self.proxy(img),
                 'vod_remarks': remarks,
-                'style': {'ratio': 1.33, 'type': 'rect'}
+                'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
