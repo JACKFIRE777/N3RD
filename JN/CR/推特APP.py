@@ -93,7 +93,7 @@ class Spider(Spider):
             if 'click' in tid:
                 id = id + 'click'
             videos.append({"vod_id": id, 'vod_name': k.get('title'), 'vod_pic': self.getProxyUrl() + f"&url={k.get('coverImg')[0]}",
-                           'vod_remarks': self.dtim(k.get('playTime')),'style': {"type": "rect", "ratio": 1.33}})
+                           'vod_remarks': self.dtim(k.get('playTime')),'style': {"type": "rect", "ratio": 1.778}})
         result["list"] = videos
         result["page"] = pg
         result["pagecount"] = 9999
@@ -122,7 +122,7 @@ class Spider(Spider):
         for k in data1:
             id = f'{k.get("videoId")}?{k.get("userId")}?{k.get("nickName")}'
             videos.append({"vod_id": id, 'vod_name': k.get('title'), 'vod_pic': self.getProxyUrl() + f"&url={k.get('coverImg')[0]}",
-                           'vod_remarks': self.dtim(k.get('playTime')), 'style': {"type": "rect", "ratio": 1.33}})
+                           'vod_remarks': self.dtim(k.get('playTime')), 'style': {"type": "rect", "ratio": 1.778}})
         result["list"] = videos
         result["page"] = pg
         result["pagecount"] = 9999
