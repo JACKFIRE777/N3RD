@@ -101,7 +101,8 @@ class Spider(Spider):
             "分类": "/categories",
             "明星": "/pornstars",
             # 【修改点 2】: 手动添加 "站内搜索" 分类，使其位于 "明星" 之后
-            "站内搜索": "search_entry" # 使用一个特定的ID
+            # 使用 '*' 作为 type_id，强制 TVbox 识别为搜索入口
+            "站内搜索": "*" 
         }
 
         classes = []
@@ -141,12 +142,6 @@ class Spider(Spider):
             'limit': 90,
             'total': 999999
         }
-
-        # ---------------- 【修改点 3】: 站内搜索入口逻辑 ----------------
-        if tid == 'search_entry':
-            # 客户端在没有关键词时，会传入空关键词（或第一个关键词），
-            # 此时返回一个空列表，触发客户端输入关键词
-            return self.searchContent("", quick=False, pg=pg)
 
         # ---------------- 如果是 keyword 类型的一级分类，转换为搜索 ----------------
         if isinstance(tid, str) and tid.startswith('keyword__'):
@@ -375,14 +370,16 @@ class Spider(Spider):
 
     # 关键词搜索
     def searchContent(self, key, quick, pg="1"):
-        # key 传入可以是映射后的真实关键字，也可以是用户输入的搜索词
+        # key: 客户端传入的搜索关键词
         
         # 如果是映射后的关键字，使用映射结果；如果是用户输入的词，直接使用 key
+        # 这里主要处理 keyword_list 传来的映射搜索词
         real_key = keyword_map.get(key, key)
         final_key = real_key if real_key else key
 
-        # 【修改点 4】: 如果最终关键词为空，则返回空列表。
-        # 这是为了响应 "站内搜索" 第一次被点击时，客户端没有输入关键词的请求。
+        # 【修改点 3】: 如果最终关键词为空，则返回空列表。
+        # 当 type_id='*' 被点击时，客户端会直接调用 searchContent(key="")，
+        # 此时返回空列表，客户端就会弹出输入框。
         if not final_key:
             return {'list': []}
 
