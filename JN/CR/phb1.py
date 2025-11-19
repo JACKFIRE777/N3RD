@@ -275,7 +275,7 @@ class Spider(Spider):
                     'vod_tag': 'folder',
                     'vod_year': i('.performerVideosViewsCount span').eq(0).text(),
                     'vod_remarks': view_str,
-                    'style': {"type": "rect", "ratio": 1}
+                    'style': {"type": "rect", "ratio": 1, "width": "150%"}
                 })
             result['list'] = vdata
             return result
