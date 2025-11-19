@@ -18,7 +18,6 @@ from base.spider import Spider
 # ---------------------------
 keyword_list = ["中国", "日本","韩国","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "大屁股"]
 
-Compilation
 
 keyword_map = {
     "中国": "中国",
