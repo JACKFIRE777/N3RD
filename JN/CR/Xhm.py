@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 最终修正版：恢复原始菜单逻辑 + 仅修复播放 302 跳转问题
+# 去代理纯净版：直连播放 + 302跳转支持
 import json
 import sys
 from base64 import b64decode, b64encode
@@ -16,12 +16,9 @@ class Spider(Spider):
 
     def init(self, extend=""):
         """
-        【保持原版】初始化逻辑，确保菜单能正常加载
+        初始化：移除代理配置，强制直连
         """
-        try:
-            self.proxies = json.loads(extend)
-        except Exception:
-            self.proxies = {}
+        self.proxies = {} 
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5410.0 Safari/537.36',
             'pragma': 'no-cache',
@@ -44,9 +41,8 @@ class Spider(Spider):
         if not self.host:
             self.host = "https://xhamster.com"
         self.headers.update({'origin': self.host, 'referer': f'{self.host}/'})
-        self.session.proxies.update(self.proxies)
+        # 移除 session 的代理设置
         self.session.headers.update(self.headers)
-        pass
 
     def getName(self):
         return "XHamster"
@@ -68,9 +64,6 @@ class Spider(Spider):
             pass
 
     def homeContent(self, filter):
-        """
-        【保持原版】确保一级菜单显示
-        """
         result = {}
         cateManual = {
             "4K": "/4k",
@@ -164,9 +157,6 @@ class Spider(Spider):
         return result
 
     def detailContent(self, ids):
-        """
-        【修复】优化播放源解析，兼容新版页面结构
-        """
         data = self.getpq(ids[0])
         djs = self.getjsdata(data)
 
@@ -246,13 +236,9 @@ class Spider(Spider):
         data = self.getpq(f'/search/{key}?page={pg}')
         return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item")), 'page': pg}
 
-    # ==========================================
-    # 核心修复：只修改 playerContent 和 m3Proxy
-    # ==========================================
-
     def playerContent(self, flag, id, vipFlags):
         """
-        【修复】增加 302 跳转支持，获取真实 token
+        【核心】保留 302 跳转逻辑以获取真实地址，但移除本地代理封装
         """
         ids = self.d64(id).split('@@@@')
         url = ids[1] if len(ids) > 1 else ''
@@ -261,7 +247,7 @@ class Spider(Spider):
         
         if url and url.lower().endswith(".m3u8"):
             try:
-                # 使用 session 处理跳转，超时设为10秒防止卡顿
+                # 必须进行一次请求以跟随跳转 (Token获取)
                 r = self.session.get(url, allow_redirects=True, timeout=10, stream=True)
                 if r.status_code < 400:
                     real_url = r.url
@@ -269,78 +255,24 @@ class Spider(Spider):
             except Exception as e:
                 print(f"Redirect Error: {e}")
                 pass
-            # 必须经过本地代理转发
-            real_url = self.proxy(real_url, "m3u8")
-        elif url:
-            # MP4 也建议走代理
-            real_url = self.proxy(url, "mp4")
-
+            # 移除 self.proxy 封装，直接返回真实链接
+        
         return {'parse': int(ids[0]) if ids and ids[0].isdigit() else 0, 'url': real_url, 'header': self.headers}
 
-    def localProxy(self, param):
-        url = self.d64(param['url'])
-        if param.get('type') == 'm3u8':
-            return self.m3Proxy(url)
-        else:
-            return self.tsProxy(url)
-            
-    def m3Proxy(self, url):
+    def proxy(self, data, type='img'):
         """
-        【修复】修复 m3u8 内部路径问题
+        【修改】直接返回原始数据，不再生成代理链接
         """
-        try:
-            # 同样使用 session
-            r = self.session.get(url, allow_redirects=True, timeout=15)
-            text = r.text
-        except Exception as e:
-            print(f"获取 m3u8 失败: {e}")
-            return [500, "text/plain", ""]
-
-        base = url.rsplit('/', 1)[0]
-        parsed = urlparse(url)
-        host = parsed.scheme + "://" + parsed.netloc
-
-        lines = text.strip().split('\n')
-        new_lines = []
-        for line in lines:
-            line = line.strip()
-            if not line or line.startswith('#'):
-                new_lines.append(line)
-                continue
-            
-            if line.startswith('http'):
-                real = line
-            elif line.startswith('/'):
-                real = host + line
-            else:
-                real = base + "/" + line
-            
-            new_lines.append(self.proxy(real, 'ts'))
-            
-        data = '\n'.join(new_lines)
-        return [200, "application/vnd.apple.mpegurl", data]
-
-    def tsProxy(self, url):
-        try:
-            data = self.session.get(url, stream=True, timeout=20)
-            return [200, data.headers.get('Content-Type', 'application/octet-stream'), data.content]
-        except Exception as e:
-            print(f"请求 TS 文件失败: {e}")
-            return [500, "application/octet-stream", b'']
-
-    # ==========================================
+        return data
 
     def gethost(self):
-        """
-        【保持原版】保留原有的域名检测逻辑
-        """
         try:
             try:
-                response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=False, timeout=10)
+                response = requests.get('https://xhamster.com', headers=self.headers, allow_redirects=False, timeout=10)
                 if response.status_code in (301, 302) and response.headers.get('Location'):
                     return response.headers['Location'].rstrip('/')
             except Exception:
-                response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=True, timeout=10)
+                response = requests.get('https://xhamster.com', headers=self.headers, allow_redirects=True, timeout=10)
             if response and hasattr(response, 'url'):
                 parsed = urlparse(response.url)
                 return f"{parsed.scheme}://{parsed.netloc}"
@@ -423,13 +355,3 @@ class Spider(Spider):
         except Exception as e:
             print(f"解析页面内 JS 数据失败: {e}")
             return {}
-
-    def proxy(self, data, type='img'):
-        try:
-            if data and len(self.proxies):
-                return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
-            else:
-                return data
-        except Exception as e:
-            print(f"proxy 生成失败: {e}")
-            return data
