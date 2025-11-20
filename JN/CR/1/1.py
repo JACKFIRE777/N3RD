@@ -8,20 +8,41 @@ from pyquery import PyQuery as pq
 from requests import Session
 sys.path.append('..')
 from base.spider import Spider
-
+import socket
 
 class Spider(Spider):
 
     def init(self, extend=""):
-        self.proxy = ''
-        if extend and json.loads(extend).get('proxy'):
-            self.proxy = json.loads(extend).get('proxy')
         self.host = self.gethost()
         self.headers['referer'] = f'{self.host}/'
         self.session = Session()
         self.session.headers.update(self.headers)
+        # 设置代理
+        self.proxies = {
+            'http': 'http://127.0.0.1:10172',
+            'https': 'http://127.0.0.1:10172'
+        }
+        # if self.is_port_open('127.0.0.1', 7891):
+        #     self.proxies = {
+        #         'http': 'http://127.0.0.1:7891',
+        #         'https': 'http://127.0.0.1:7891'
+        #     }
+        
+        self.session.proxies.update(self.proxies)
         pass
 
+    def is_port_open(self, host, port):
+        """使用 socket 检查指定主机和端口是否开放"""
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)  # 设置 1 秒超时
+        try:
+            result = sock.connect_ex((host, port))
+            return result == 0  # 返回 0 表示端口开放
+        except Exception:
+            return False
+        finally:
+            sock.close()
+        
     def getName(self):
         pass
 
@@ -91,7 +112,7 @@ class Spider(Spider):
         result['total'] = 999999
         if tid in ['/4k', '/newest', '/best'] or 'two_click_' in tid:
             if 'two_click_' in tid: tid = tid.split('click_')[-1]
-            data = self.getpq(f'{tid}{extend.get("type", "")}/{pg}')
+            data = self.getpq(f'{tid}{extend.get("type","")}/{pg}')
             vdata = self.getlist(data(".thumb-list--sidebar .thumb-list__item"))
         elif tid == '/channels':
             data = self.getpq(f'{tid}/{pg}')
@@ -167,27 +188,25 @@ class Spider(Spider):
             plist = []
             d = djs['xplayerSettings']['sources']
             f = d.get('standard')
-
-            def get_sort_key(url):
+            def custom_sort_key(url):
                 quality = url.split('$')[0]
                 number = ''.join(filter(str.isdigit, quality))
                 number = int(number) if number else 0
                 return -number, quality
-
+                
             if f:
                 for key, value in f.items():
                     if isinstance(value, list):
                         for info in value:
                             id = self.e64(f'{0}@@@@{info.get("url") or info.get("fallback")}')
                             plist.append(f"{info.get('label') or info.get('quality')}${id}")
-
-            plist.sort(key=get_sort_key)
+            plist.sort(key=custom_sort_key)
             if d.get('hls'):
                 for format_type, info in d['hls'].items():
                     if url := info.get('url'):
                         encoded = self.e64(f'{0}@@@@{url}')
                         plist.append(f"{format_type}${encoded}")
-
+                        
         except Exception as e:
             plist = [f"{vn}${self.e64(f'{1}@@@@{ids[0]}')}"]
             print(f"获取视频信息失败: {str(e)}")
@@ -216,14 +235,14 @@ class Spider(Spider):
             'priority': 'u=1, i',
         }
         ids = self.d64(id).split('@@@@')
-        return {'parse': int(ids[0]), 'url': f'{self.proxy}{ids[1]}', 'header': headers}
+        return {'parse': int(ids[0]), 'url': ids[1], 'header': headers}
 
     def localProxy(self, param):
         pass
 
     def gethost(self):
         try:
-            response = self.fetch(f'{self.proxy}https://xhamster.com', headers=self.headers, allow_redirects=False)
+            response = self.fetch('https://xhamster.com', headers=self.headers, proxies=self.proxies, allow_redirects=False)
             return response.headers['Location']
         except Exception as e:
             print(f"获取主页失败: {str(e)}")
@@ -262,7 +281,7 @@ class Spider(Spider):
 
     def getpq(self, path=''):
         h = '' if path.startswith('http') else self.host
-        response = self.session.get(f'{self.proxy}{h}{path}').text
+        response = self.session.get(f'{h}{path}').text
         try:
             return pq(response)
         except Exception as e:
@@ -273,4 +292,3 @@ class Spider(Spider):
         vhtml = data("script[id='initials-script']").text()
         jst = json.loads(vhtml.split('initials=')[-1][:-1])
         return jst
-
