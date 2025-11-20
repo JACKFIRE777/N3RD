@@ -260,18 +260,35 @@ class Spider(Spider):
         data = self.getpq(f'/search/{key}?page={pg}')
         return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item")), 'page': pg}
 
-    def playerContent(self, flag, id, vipFlags):
-        """
-        修复：避免对 m3u8 重复 proxy，player 返回的 url 已经是最终可直接播放地址或 proxy 后的 m3u8
-        ids 结构为 base64 解码后：flag@@@@url
-        """
-        ids = self.d64(id).split('@@@@')
-        url = ids[1] if len(ids) > 1 else ''
-        # 只对以 .m3u8 结尾的地址做一次 proxy（确保 m3u8 中 ts 链接会被代理）
-        if url and url.lower().endswith(".m3u8"):
-            url = self.proxy(url, "m3u8")
-        return {'parse': int(ids[0]) if ids and ids[0].isdigit() else 0, 'url': url, 'header': self.headers}
 
+def playerContent(self, flag, id, vipFlags):
+    ids = self.d64(id).split('@@@@')
+    url = ids[1] if len(ids) > 1 else ''
+
+    # 判断是否为 m3u8
+    if url.endswith(".m3u8"):
+        try:
+            # 第一次请求，用于获取真正的跳转 URL
+            r = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=10)
+            real_url = r.url     # 最终跳转后的带 token 的 m3u8
+
+            # 交给本地代理解析 ts
+            real_url = self.proxy(real_url, "m3u8")
+        except Exception as e:
+            print("m3u8跳转失败：", e)
+            real_url = url
+    else:
+        real_url = url
+
+    return {
+        'parse': int(ids[0]) if ids and ids[0].isdigit() else 0,
+        'url': real_url,
+        'header': self.headers
+    }
+
+
+
+    
     def localProxy(self, param):
         """
         本地代理入口：区分 m3u8 和 ts（或其他）
@@ -393,42 +410,39 @@ class Spider(Spider):
             print(f"解析页面内 JS 数据失败: {e}")
             return {}
 
-    def m3Proxy(self, url):
-        """
-        代理 m3u8：下载 m3u8 内容，将非绝对的 ts/segment 路径转换为绝对并 proxy 单片段（ts）
-        返回 [status_code, content_type, content]
-        """
-        try:
-            r = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=15)
-            text = r.text
-        except Exception as e:
-            print(f"获取 m3u8 失败: {e}")
-            return [500, "text/plain", ""]
+def m3Proxy(self, url):
+    try:
+        # 直接获取真实 m3u8 内容
+        r = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=10)
+        text = r.text
+    except:
+        return [500, "text/plain", ""]
 
-        base = url[:url.rfind('/')] if '/' in url else url
-        parsed = urlparse(url)
-        host = parsed.scheme + "://" + parsed.netloc
+    base = url.rsplit('/', 1)[0]
+    host = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
 
-        lines = text.strip().split('\n')
-        for idx, line in enumerate(lines):
-            if not line or line.startswith('#'):
-                continue
-            # 如果是相对路径，拼接为绝对
-            if not line.startswith('http'):
-                if line.startswith('/'):
-                    real = host + line
-                else:
-                    real = base + "/" + line
+    lines = text.split("\n")
+    new = []
+
+    for line in lines:
+        if line.startswith("#") or not line.strip():
+            new.append(line)
+            continue
+
+        # 绝对路径
+        if line.startswith("http"):
+            new.append(self.proxy(line, "ts"))
+        else:
+            # 相对路径转绝对
+            if line.startswith("/"):
+                real = host + line
             else:
-                real = line
-            # 将 ts/segment 转为本地代理链接
-            # proxy(type) 中我们约定：type 为文件后缀名（例如 ts 或 m3u8）
-            # 当 proxy 被调用时，如果 proxies 存在，会返回本地代理地址；否则返回原始地址
-            suffix = real.split('.')[-1].split('?')[0]
-            lines[idx] = self.proxy(real, suffix)
-        data = '\n'.join(lines)
-        # 修正 Content-Type 为标准 m3u8 类型
-        return [200, "application/vnd.apple.mpegurl", data]
+                real = base + "/" + line
+
+            new.append(self.proxy(real, "ts"))
+
+    return [200, "application/vnd.apple.mpegurl", "\n".join(new)]
+
 
     def tsProxy(self, url):
         """
