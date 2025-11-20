@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# 完整修复版（修正菜单消失问题 + 修复视频播放）
+# 最终极速修复版（移除初始化网络请求，确保菜单秒开）
 import json
 import sys
 from base64 import b64decode, b64encode
@@ -15,7 +15,7 @@ class Spider(Spider):
 
     def init(self, extend=""):
         """
-        初始化：设置代理、Session 和默认 headers
+        初始化：移除了所有网络请求，确保菜单秒开
         """
         try:
             self.proxies = json.loads(extend)
@@ -39,19 +39,10 @@ class Spider(Spider):
             'priority': 'u=1, i',
         }
         
-        self.session = Session()
-        
-        # 【关键修复】防止 init 超时导致菜单不显示
-        # 优先设置默认值，防止 gethost 耗时过长
+        # 【关键修改】直接指定域名，不再进行网络探测，防止 timeout 导致菜单不显示
         self.host = "https://xhamster.com"
-        try:
-            # 尝试获取真实域名，但设置较短超时，失败则忽略
-            real_host = self.gethost()
-            if real_host:
-                self.host = real_host
-        except Exception:
-            pass
-            
+        
+        self.session = Session()
         self.headers.update({'origin': self.host, 'referer': f'{self.host}/'})
         self.session.proxies.update(self.proxies)
         self.session.headers.update(self.headers)
@@ -77,7 +68,7 @@ class Spider(Spider):
 
     def homeContent(self, filter):
         """
-        一级菜单逻辑（完全保留原版，确保菜单显示）
+        一级菜单逻辑
         """
         result = {}
         cateManual = {
@@ -114,14 +105,15 @@ class Spider(Spider):
         result['pagecount'] = 9999
         result['limit'] = 90
         result['total'] = 999999
+        
         if tid in ['/4k', '/newest', '/best'] or 'two_click_' in tid:
             if 'two_click_' in tid:
                 tid = tid.split('click_')[-1]
-            # 拼接 URL，处理 extend
             suffix = extend.get("type", "")
             url_path = f'{tid}{suffix}/{pg}'
             data = self.getpq(url_path)
             vdata = self.getlist(data(".thumb-list--sidebar .thumb-list__item"))
+            
         elif tid == '/channels':
             data = self.getpq(f'{tid}/{pg}')
             jsdata = self.getjsdata(data)
@@ -261,23 +253,20 @@ class Spider(Spider):
         return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item")), 'page': pg}
 
     # ==========================================
-    # 核心修复：播放相关函数
+    # 核心播放修复
     # ==========================================
 
     def playerContent(self, flag, id, vipFlags):
-        """
-        [修复版] m3u8 302跳转检测
-        """
         ids = self.d64(id).split('@@@@')
         url = ids[1] if len(ids) > 1 else ''
         
         final_url = url
         
-        # 对 m3u8 进行 302 跳转预处理，获取 Token
+        # 播放前进行 302 跳转获取 Token
         if url and url.lower().endswith('.m3u8'):
             try:
-                # 使用 session 保持状态，超时设置短一点防止卡死
-                r = self.session.get(url, allow_redirects=True, timeout=8, stream=True)
+                # 使用 session，超时设短一点
+                r = self.session.get(url, allow_redirects=True, timeout=10, stream=True)
                 if r.status_code < 400:
                     final_url = r.url
                 r.close()
@@ -285,7 +274,6 @@ class Spider(Spider):
                 print(f"m3u8 jump failed: {e}")
                 final_url = url
             
-            # 必须经过本地代理
             final_url = self.proxy(final_url, "m3u8")
         elif url:
             final_url = self.proxy(url, "mp4")
@@ -305,9 +293,6 @@ class Spider(Spider):
             return self.tsProxy(url)
 
     def m3Proxy(self, url):
-        """
-        [修复版] m3u8 路径修复
-        """
         try:
             r = self.session.get(url, allow_redirects=True, timeout=15)
             content = r.text
@@ -324,7 +309,6 @@ class Spider(Spider):
                     new_lines.append(line)
                     continue
                 
-                # 路径标准化
                 real_ts_url = line
                 if not line.startswith('http'):
                     if line.startswith('/'):
@@ -332,7 +316,6 @@ class Spider(Spider):
                     else:
                         real_ts_url = base_url + '/' + line
                 
-                # 封装代理
                 new_lines.append(self.proxy(real_ts_url, "ts"))
             
             return [200, "application/vnd.apple.mpegurl", '\n'.join(new_lines)]
@@ -358,24 +341,18 @@ class Spider(Spider):
         except Exception:
             return data
 
+    # 保留方法但不再在 init 中调用
     def gethost(self):
-        """
-        原始获取域名逻辑
-        """
         try:
-            try:
-                response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=False, timeout=5)
-                if response.status_code in (301, 302) and response.headers.get('Location'):
-                    return response.headers['Location'].rstrip('/')
-            except Exception:
-                response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=True, timeout=5)
-            
-            if response and hasattr(response, 'url'):
+            response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=False, timeout=5)
+            if response.status_code in (301, 302) and response.headers.get('Location'):
+                return response.headers['Location'].rstrip('/')
+            if hasattr(response, 'url'):
                 parsed = urlparse(response.url)
                 return f"{parsed.scheme}://{parsed.netloc}"
-        except Exception as e:
-            print(f"获取主页失败: {str(e)}")
-        return "https://zn.xhamster.com"
+        except:
+            pass
+        return "https://xhamster.com"
 
     def e64(self, text):
         try:
