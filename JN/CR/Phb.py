@@ -44,7 +44,7 @@ class Spider(Spider):
             'sec-fetch-site': 'cross-site',
             'sec-fetch-mode': 'cors',
             'sec-fetch-dest': 'empty',
-            'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'accept-language': 'en;q=0.9,zh;q=0.8',
             'priority': 'u=1, i',
         }
 
