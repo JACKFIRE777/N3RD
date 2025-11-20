@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # 完整修复版（保留原有一级菜单逻辑）
-# by @嗷呜 （已由 ChatGPT 修复播放/代理/解析相关问题）
+# by @嗷呜 （已由 Gemini 整合 ChatGPT 修复方案并修正）
 import json
 import sys
 from base64 import b64decode, b64encode
@@ -10,6 +10,7 @@ import requests
 from pyquery import PyQuery as pq
 from requests import Session
 sys.path.append('..')
+# 假设 base.spider 存在
 from base.spider import Spider
 
 
@@ -96,7 +97,8 @@ class Spider(Spider):
             })
             # 原代码对非 4K 添加 filters（保持）
             if k != '4K':
-                filters[cateManual[k]] = [{'key': 'type', 'name': '类型', 'value': [{'n': '4K', 'v': '/4k'}]}]
+                # 假设这是用于筛选的逻辑，保持不变
+                filters[cateManual[k]] = [{'key': 'type', 'name': '类型', 'value': [{'n': '4K', 'v': '/4k'}]}] 
         result['class'] = classes
         result['filters'] = filters
         return result
@@ -108,6 +110,8 @@ class Spider(Spider):
     def categoryContent(self, tid, pg, filter, extend):
         vdata = []
         result = {}
+        # 修正：将 pg 转换为字符串以兼容 f-string 拼接
+        pg = str(pg)
         result['page'] = pg
         result['pagecount'] = 9999
         result['limit'] = 90
@@ -157,16 +161,21 @@ class Spider(Spider):
         elif 'one_click' in tid:
             result['pagecount'] = pg
             tid = tid.split('click_')[-1]
+            # 确保 self.cdata 存在且结构正确
+            items_to_process = []
             for i in self.cdata.get('layoutPage', {}).get('store', {}).get('popular', {}).get('assignable', []):
                 if i.get('id') == tid:
-                    for j in i.get('items', []):
-                        vdata.append({
-                            'vod_id': f"two_click_" + j.get('url', ''),
-                            'vod_name': j.get('name', ''),
-                            'vod_pic': self.proxy(j.get('thumb')),
-                            'vod_tag': 'folder',
-                            'style': {'ratio': 1.778, 'type': 'rect'}
-                        })
+                    items_to_process = i.get('items', [])
+                    break
+
+            for j in items_to_process:
+                vdata.append({
+                    'vod_id': f"two_click_" + j.get('url', ''),
+                    'vod_name': j.get('name', ''),
+                    'vod_pic': self.proxy(j.get('thumb')),
+                    'vod_tag': 'folder',
+                    'style': {'ratio': 1.778, 'type': 'rect'}
+                })
         result['list'] = vdata
         return result
 
@@ -176,7 +185,11 @@ class Spider(Spider):
         输出格式： quality$base64(flag@@@@url)
         flag 使用 0 表示直接播放器可播放，备用 fallback 使用 1 表示页面地址
         """
-        data = self.getpq(ids[0])
+        # 兼容 ids 是列表的情况
+        if isinstance(ids, list):
+            ids = ids[0]
+            
+        data = self.getpq(ids)
         djs = self.getjsdata(data)
 
         vn = data('meta[property="og:title"]').attr('content') or ''
@@ -185,7 +198,9 @@ class Spider(Spider):
         title = dtext('span[class*="body-bold-"]').eq(0).text() if dtext else ''
         pdtitle = ''
         if href:
-            pdtitle = '[a=cr:' + json.dumps({'id': 'two_click_' + href, 'name': title}) + '/]' + title + '[/a]'
+            # 修正：确保 title 不为空，避免 cr:{} 格式错误
+            if title:
+                pdtitle = '[a=cr:' + json.dumps({'id': 'two_click_' + href, 'name': title}) + '/]' + title + '[/a]'
 
         vod = {
             'vod_name': vn,
@@ -220,8 +235,10 @@ class Spider(Spider):
                 elif isinstance(obj, str):
                     real = obj
                 if real:
+                    # 修正：给 hls 质量名称添加标记以便区分
+                    lbl = f"HLS-{qname}"
                     b64 = self.e64(f"0@@@@{real}")
-                    plist.append(f"{qname}${b64}")
+                    plist.append(f"{lbl}${b64}")
 
             # 去重并排序：按质量名中数字降序（例如 1080, 720 ...）
             def sort_key(s):
@@ -235,60 +252,74 @@ class Spider(Spider):
             unique_plist = []
             for entry in plist:
                 try:
-                    _, b64 = entry.split('$', 1)
-                    url = self.d64(b64).split('@@@@', 1)[1]
+                    # 分割质量名和 base64 编码的 URL
+                    quality_name, b64 = entry.split('$', 1) 
+                    # 解码获取 flag 和 URL
+                    decoded_parts = self.d64(b64).split('@@@@', 1) 
+                    if len(decoded_parts) > 1:
+                        url = decoded_parts[1]
+                    else:
+                        url = entry # 无法解码的情况，用原始 entry 代替
                 except Exception:
                     url = entry
-                if url not in seen_urls:
+                    
+                if url and url not in seen_urls: # 确保 url 不为空
                     seen_urls.add(url)
                     unique_plist.append(entry)
+            
+            # 排序逻辑：以 quality_name 中的数字倒序
             unique_plist.sort(key=sort_key)
             plist = unique_plist
 
             # 如果没有任何解析到的播放源，作为兜底使用页面地址
             if not plist:
-                plist = [f"{vn}${self.e64(f'1@@@@{ids[0]}')}"]
+                plist = [f"{vn}${self.e64(f'1@@@@{ids}')}"]
 
         except Exception as e:
             print("播放源解析失败：", str(e))
-            plist = [f"{vn}${self.e64(f'1@@@@{ids[0]}')}"]
+            plist = [f"{vn}${self.e64(f'1@@@@{ids}')}"]
 
         vod['vod_play_url'] = '#'.join(plist)
         return {'list': [vod]}
 
     def searchContent(self, key, quick, pg="1"):
+        # 修正：确保 pg 为字符串
+        pg = str(pg)
         data = self.getpq(f'/search/{key}?page={pg}')
         return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item")), 'page': pg}
 
-
-def playerContent(self, flag, id, vipFlags):
-    ids = self.d64(id).split('@@@@')
-    url = ids[1] if len(ids) > 1 else ''
-
-    # 判断是否为 m3u8
-    if url.endswith(".m3u8"):
-        try:
-            # 第一次请求，用于获取真正的跳转 URL
-            r = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=10)
-            real_url = r.url     # 最终跳转后的带 token 的 m3u8
-
-            # 交给本地代理解析 ts
-            real_url = self.proxy(real_url, "m3u8")
-        except Exception as e:
-            print("m3u8跳转失败：", e)
-            real_url = url
-    else:
+    # === 【替换 1】playerContent —— 增加真实 m3u8 跳转解析 ===
+    def playerContent(self, flag, id, vipFlags):
+        """
+        修复：增加对 m3u8 的 302 跳转处理，获取带 token 的真实 URL。
+        """
+        ids = self.d64(id).split('@@@@')
+        url = ids[1] if len(ids) > 1 else ''
+        
         real_url = url
+        
+        # 判断是否为 m3u8
+        if url.lower().endswith(".m3u8"):
+            try:
+                # 第一次请求，用于获取真正的跳转 URL (带 token)
+                # 必须使用 Session 或 requests 才能处理重定向后的 URL (r.url)
+                # 使用 session 确保 headers/proxies 一致
+                r = self.session.get(url, allow_redirects=True, timeout=10)
+                # r.url 即为最终跳转后的带 token 的 m3u8 地址
+                real_url = r.url     
 
-    return {
-        'parse': int(ids[0]) if ids and ids[0].isdigit() else 0,
-        'url': real_url,
-        'header': self.headers
-    }
+                # 将带 token 的真实 m3u8 地址交给本地代理
+                real_url = self.proxy(real_url, "m3u8")
+            except Exception as e:
+                print(f"m3u8跳转失败: {e}，使用原URL作为兜底")
+                real_url = url # 跳转失败则使用原URL
 
+        return {
+            'parse': int(ids[0]) if ids and ids[0].isdigit() else 0,
+            'url': real_url,
+            'header': self.headers
+        }
 
-
-    
     def localProxy(self, param):
         """
         本地代理入口：区分 m3u8 和 ts（或其他）
@@ -299,19 +330,98 @@ def playerContent(self, flag, id, vipFlags):
         else:
             return self.tsProxy(url)
 
+    # === 【替换 2】m3Proxy —— 修复 m3u8 片段路径处理 ===
+    def m3Proxy(self, url):
+        """
+        代理 m3u8：下载 m3u8 内容，将非绝对的 ts/segment 路径转换为绝对并 proxy 单片段（ts）
+        返回 [status_code, content_type, content]
+        """
+        try:
+            # 直接获取真实 m3u8 内容 (已是带 token 的最终 URL，不需要再次处理 302)
+            r = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=10)
+            text = r.text
+        except Exception as e:
+            print(f"获取 m3u8 失败: {e}")
+            return [500, "text/plain", ""]
+
+        # 获取 m3u8 文件的基础路径 (不含文件名)
+        base = url.rsplit('/', 1)[0]
+        # 获取 m3u8 文件的 Host
+        parsed_url = urlparse(url)
+        host = f"{parsed_url.scheme}://{parsed_url.netloc}"
+
+        lines = text.split("\n")
+        new = []
+
+        for line in lines:
+            if line.startswith("#") or not line.strip():
+                new.append(line)
+                continue
+
+            # 绝对路径
+            if line.startswith("http"):
+                real = line
+            else:
+                # 相对路径转绝对
+                if line.startswith("/"):
+                    real = host + line
+                else:
+                    real = base + "/" + line
+
+            # 无论绝对或相对，只要是播放片段，都通过本地代理进行封装
+            # 约定：proxy(type) 中，ts片段使用 "ts"
+            new.append(self.proxy(real, "ts"))
+
+        # 修正 Content-Type 为标准 m3u8 类型
+        return [200, "application/vnd.apple.mpegurl", "\n".join(new)]
+
+
+    def tsProxy(self, url):
+        """
+        代理 ts 或其他媒体片段：直接请求并返回二进制
+        返回 [status_code, content_type, content_bytes]
+        """
+        try:
+            # 修正：使用 self.session 或 requests 保持 headers/proxies 一致性
+            data = requests.get(url, headers=self.headers, proxies=self.proxies, stream=True, timeout=20)
+            return [200, data.headers.get('Content-Type', 'application/octet-stream'), data.content]
+        except Exception as e:
+            print(f"请求 TS 文件失败: {e}")
+            return [500, "application/octet-stream", b'']
+
+    def proxy(self, data, type='img'):
+        """
+        生成代理链接（如果配置了 self.proxies 则返回本地代理地址，否则返回原始地址）
+        约定：getProxyUrl() 应由运行环境/框架实现，返回本地代理基础 URL（例如 http://127.0.0.1:12010/proxy?）
+        生成格式：<getProxyUrl()>&url=<base64>&type=<type>
+        """
+        try:
+            if data and len(self.proxies):
+                # 如果存在 proxies，则走本地代理（通过 base64 编码）
+                return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
+            else:
+                # 没有代理则直接返回原始链接
+                return data
+        except Exception as e:
+            print(f"proxy 生成失败: {e}")
+            return data
+
     def gethost(self):
         """
         更稳健的获取主域名方法：优先尝试请求并处理 3xx 重定向 Location，否则退回默认
         """
         try:
             # 使用 allow_redirects=False 来获取 Location header，如果没有再尝试 allow_redirects=True
+            response = None
             try:
                 response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=False, timeout=10)
                 if response.status_code in (301, 302) and response.headers.get('Location'):
                     return response.headers['Location'].rstrip('/')
                 # 如果没有 Location，则直接使用最终 URL（有时会被重定向到区域站点）
             except Exception:
+                # 如果第一次失败，尝试允许重定向
                 response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=True, timeout=10)
+            
             # 尝试从 response.url 提取主机
             if response and hasattr(response, 'url'):
                 parsed = urlparse(response.url)
@@ -345,17 +455,21 @@ def playerContent(self, flag, id, vipFlags):
             # 使用更健壮的选择器和空值保护
             href = i('.role-pop').attr('href') or ''
             name = i('.video-thumb-info a').text() or ''
-            pic = i('.role-pop img').attr('src') or ''
+            # 修正：图片可能在 data-src 中，尝试获取 src 和 data-src
+            pic = i('.role-pop img').attr('src') or i('.role-pop img').attr('data-src') or ''
             views_text = i('.video-thumb-info .video-thumb-views').text() or ''
             duration = i('.role-pop div[data-role="video-duration"]').text() or ''
-            vlist.append({
-                'vod_id': href,
-                'vod_name': name,
-                'vod_pic': self.proxy(pic),
-                'vod_year': views_text.split(' ')[0] if views_text else '',
-                'vod_remarks': duration,
-                'style': {'ratio': 1.778, 'type': 'rect'}
-            })
+            
+            # 确保 href 不为空
+            if href:
+                vlist.append({
+                    'vod_id': href,
+                    'vod_name': name,
+                    'vod_pic': self.proxy(pic),
+                    'vod_year': views_text.split(' ')[0] if views_text else '',
+                    'vod_remarks': duration,
+                    'style': {'ratio': 1.778, 'type': 'rect'}
+                })
         return vlist
 
     def getpq(self, path=''):
@@ -363,12 +477,14 @@ def playerContent(self, flag, id, vipFlags):
         获取页面并返回 PyQuery 对象。path 可以是完整 URL 或相对 path。
         """
         h = '' if path.startswith('http') else self.host
+        full_url = f'{h}{path}'
         try:
-            response = self.session.get(f'{h}{path}', timeout=15)
+            # 使用 session 确保 headers 和 proxies 生效
+            response = self.session.get(full_url, timeout=15)
             response.encoding = response.apparent_encoding
             text = response.text
         except Exception as e:
-            print(f"请求失败 {h}{path} : {e}")
+            print(f"请求失败 {full_url} : {e}")
             # 兜底返回空文档
             text = ''
         try:
@@ -376,7 +492,11 @@ def playerContent(self, flag, id, vipFlags):
         except Exception as e:
             # 如果解析失败，尝试以 utf-8 bytes 再解析
             try:
-                return pq(text.encode('utf-8'))
+                # 只有当 text 非空时才尝试
+                if text:
+                    return pq(text.encode('utf-8'))
+                else:
+                    return pq('')
             except Exception:
                 print(str(e))
                 return pq('')
@@ -403,72 +523,16 @@ def playerContent(self, flag, id, vipFlags):
                 # 去掉结尾的 ; 或 var 等
                 if jpart.endswith(';'):
                     jpart = jpart[:-1]
+                # 尝试处理可能的尾部代码干扰
+                if jpart.endswith(')'):
+                    # 尝试去除可能的 IIFE (Immediately Invoked Function Expression) 尾部
+                    last_brace_index = jpart.rfind('}')
+                    if last_brace_index != -1 and jpart[last_brace_index:].strip().endswith(')'):
+                        jpart = jpart[:last_brace_index+1]
+                        
                 return json.loads(jpart)
             # fallback 直接尝试 json.loads
             return json.loads(vhtml)
         except Exception as e:
             print(f"解析页面内 JS 数据失败: {e}")
             return {}
-
-def m3Proxy(self, url):
-    try:
-        # 直接获取真实 m3u8 内容
-        r = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=10)
-        text = r.text
-    except:
-        return [500, "text/plain", ""]
-
-    base = url.rsplit('/', 1)[0]
-    host = f"{urlparse(url).scheme}://{urlparse(url).netloc}"
-
-    lines = text.split("\n")
-    new = []
-
-    for line in lines:
-        if line.startswith("#") or not line.strip():
-            new.append(line)
-            continue
-
-        # 绝对路径
-        if line.startswith("http"):
-            new.append(self.proxy(line, "ts"))
-        else:
-            # 相对路径转绝对
-            if line.startswith("/"):
-                real = host + line
-            else:
-                real = base + "/" + line
-
-            new.append(self.proxy(real, "ts"))
-
-    return [200, "application/vnd.apple.mpegurl", "\n".join(new)]
-
-
-    def tsProxy(self, url):
-        """
-        代理 ts 或其他媒体片段：直接请求并返回二进制
-        返回 [status_code, content_type, content_bytes]
-        """
-        try:
-            data = requests.get(url, headers=self.headers, proxies=self.proxies, stream=True, timeout=20)
-            return [200, data.headers.get('Content-Type', 'application/octet-stream'), data.content]
-        except Exception as e:
-            print(f"请求 TS 文件失败: {e}")
-            return [500, "application/octet-stream", b'']
-
-    def proxy(self, data, type='img'):
-        """
-        生成代理链接（如果配置了 self.proxies 则返回本地代理地址，否则返回原始地址）
-        约定：getProxyUrl() 应由运行环境/框架实现，返回本地代理基础 URL（例如 http://127.0.0.1:12010/proxy?）
-        生成格式：<getProxyUrl()>&url=<base64>&type=<type>
-        """
-        try:
-            if data and len(self.proxies):
-                # 如果存在 proxies，则走本地代理（通过 base64 编码）
-                return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
-            else:
-                # 没有代理则直接返回原始链接
-                return data
-        except Exception as e:
-            print(f"proxy 生成失败: {e}")
-            return data
