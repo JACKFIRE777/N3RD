@@ -1,58 +1,45 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 & 修复优化
-# Xhamster视频网站爬虫类，用于获取视频列表、详情和播放地址
+# by @嗷呜 & 修复优化版
+# Xhamster视频网站爬虫类
 
 import json
 import re
 import sys
 from base64 import b64decode, b64encode
 from urllib.parse import urlparse
-
 import requests
 from pyquery import PyQuery as pq
 from requests import Session
+import urllib3
+
+# 禁用SSL警告，防止安卓/TV盒子上报错
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 sys.path.append('..')
 from base.spider import Spider
 
-
 class Spider(Spider):
-    """Xhamster视频爬虫类，继承自基础Spider类"""
-
     def init(self, extend=""):
-        """
-        初始化爬虫配置
-        Args:
-            extend: 扩展配置，JSON格式的代理设置
-        """
         try:
             self.proxies = json.loads(extend)
         except:
             self.proxies = {}
         
-        # [修复1] 统一 User-Agent 和 sec-ch-ua 为 Windows Chrome 133，避免指纹冲突
+        # 这里的 host 直接写死，不要去动态获取，否则启动会卡住
+        self.host = "https://xhamster.com"
+        
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
-            'pragma': 'no-cache',
-            'cache-control': 'no-cache',
-            'sec-ch-ua-platform': '"Windows"',
-            'sec-ch-ua': '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
-            'dnt': '1',
-            'sec-ch-ua-mobile': '?0',
-            'origin': '',
-            'sec-fetch-site': 'cross-site',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-dest': 'empty',
-            'referer': '',  # 在后面动态更新
-            'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
-            'priority': 'u=1, i',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': f'{self.host}/',
+            'Origin': self.host,
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
         }
         
-        self.host = self.gethost()
-        
         self.session = Session()
-        self.headers.update({'origin': self.host, 'referer': f'{self.host}/'})
         self.session.proxies.update(self.proxies)
         self.session.headers.update(self.headers)
+        # 设置连接超时，防止无限转圈
+        self.session.mount('https://', requests.adapters.HTTPAdapter(max_retries=2))
 
     def getName(self):
         pass
@@ -67,6 +54,7 @@ class Spider(Spider):
         pass
 
     def homeContent(self, filter):
+        # 首页分类配置，不需要网络请求，应该能瞬间显示
         result = {}
         cateManual = {
             "4K": "/4k",
@@ -92,7 +80,8 @@ class Spider(Spider):
         return result
 
     def homeVideoContent(self):
-        data = self.getpq()
+        # 获取首页视频
+        data = self.getpq("/")
         return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item"))}
 
     def categoryContent(self, tid, pg, filter, extend):
@@ -106,13 +95,14 @@ class Spider(Spider):
         if tid in ['/4k', '/newest', '/best'] or 'two_click_' in tid:
             if 'two_click_' in tid: 
                 tid = tid.split('click_')[-1]
-            data = self.getpq(f'{tid}{extend.get("type", "")}/{pg}')
+            # 拼接URL时注意斜杠
+            url = f'{tid}{extend.get("type", "")}/{pg}'
+            data = self.getpq(url)
             vdata = self.getlist(data(".thumb-list--sidebar .thumb-list__item"))
         
         elif tid == '/channels':
             data = self.getpq(f'{tid}/{pg}')
             jsdata = self.getjsdata(data)
-            # 增加判空处理
             if jsdata and 'channels' in jsdata:
                 for i in jsdata['channels']:
                     vdata.append({
@@ -121,7 +111,7 @@ class Spider(Spider):
                         'vod_pic': self.proxy(i.get('siteLogoURL')),
                         'vod_year': f'videos:{i.get("videoCount")}',
                         'vod_tag': 'folder',
-                        'vod_remarks': f'subscribers:{i.get("subscriptionModel", {}).get("subscribers", "")}',
+                        'vod_remarks': str(i.get("subscriptionModel", {}).get("subscribers", "")),
                         'style': {'ratio': 1.778, 'type': 'rect'}
                     })
         
@@ -129,7 +119,6 @@ class Spider(Spider):
             result['pagecount'] = pg
             data = self.getpq(tid)
             self.cdata = self.getjsdata(data)
-            # 增加判空处理，防止结构变化导致报错
             try:
                 items = self.cdata['layoutPage']['store']['popular']['assignable']
                 for i in items:
@@ -162,6 +151,10 @@ class Spider(Spider):
             result['pagecount'] = pg
             tid = tid.split('click_')[-1]
             try:
+                # 这里的逻辑依赖于之前缓存的cdata，如果session重置可能会有问题，建议重新获取一次
+                if not hasattr(self, 'cdata'):
+                     self.cdata = self.getjsdata(self.getpq('/categories'))
+                
                 for i in self.cdata['layoutPage']['store']['popular']['assignable']:
                     if i.get('id') == tid:
                         for j in i['items']:
@@ -178,86 +171,65 @@ class Spider(Spider):
         return result
 
     def detailContent(self, ids):
-        """
-        获取视频详情和播放地址（修复核心逻辑）
-        """
-        data = self.getpq(ids[0])
+        # 获取视频详情
+        url = ids[0]
+        data = self.getpq(url)
         djs = self.getjsdata(data)
         
-        vn = data('meta[property="og:title"]').attr('content') or "Xhamster Video"
-        
-        dtext = data('#video-tags-list-container')
-        href = dtext('a').attr('href')
-        title = dtext('span[class*="body-bold-"]').eq(0).text()
-        
-        pdtitle = ''
-        if href:
-            pdtitle = '[a=cr:' + json.dumps({'id': 'two_click_' + href, 'name': title}) + '/]' + title + '[/a]'
-        
+        # 标题兜底
+        try:
+            vn = data('h1').text()
+            if not vn: vn = data('meta[property="og:title"]').attr('content')
+        except: vn = "Unknown Video"
+
+        # 视频信息提取
         vod = {
             'vod_name': vn,
-            'vod_director': pdtitle,
-            'vod_remarks': data('.rb-new__info').text(),
             'vod_play_from': 'Xhamster',
-            'vod_play_url': ''
+            'vod_play_url': '',
+            'vod_content': data('div.rb-new__info').text()
         }
         
+        plist = []
         try:
-            plist = []
-            # [修复2] 增加对数据结构的兼容性检查
-            sources = djs.get('xplayerSettings', {}).get('sources', {})
-            if not sources:
-                # 备用路径：有时候数据在 videoModel 中
-                sources = djs.get('videoModel', {}).get('sources', {})
+            # 尝试多种路径获取 sources
+            sources = {}
+            if djs:
+                if 'xplayerSettings' in djs and 'sources' in djs['xplayerSettings']:
+                    sources = djs['xplayerSettings']['sources']
+                elif 'videoModel' in djs and 'sources' in djs['videoModel']:
+                    sources = djs['videoModel']['sources']
 
-            standard_sources = sources.get('standard', {})
-            hls_sources = sources.get('hls', {})
+            # 1. 标准 MP4
+            std = sources.get('standard', {})
+            if std:
+                for fmt, val in std.items():
+                    if isinstance(val, list):
+                        for v in val:
+                            u = v.get('url') or v.get('fallback')
+                            if u and u.startswith('http'):
+                                label = v.get('label', fmt)
+                                plist.append(f"{label}${self.e64('0@@@@'+u)}")
 
-            # 自定义排序函数
-            def custom_sort_key(url_item):
-                quality = url_item.split('$')[0]
-                number = ''.join(filter(str.isdigit, quality))
-                number = int(number) if number else 0
-                return -number, quality
-            
-            # 1. 处理 MP4 (Standard)
-            if standard_sources:
-                for fmt, value in standard_sources.items(): # fmt: av1, h264
-                    if isinstance(value, list):
-                        for info in value:
-                            url = info.get("url") or info.get("fallback")
-                            label = info.get('label') or info.get('quality') or fmt
-                            
-                            # [重要修复] 过滤无效的哈希字符串，必须是 http 开头
-                            if url and isinstance(url, str) and url.startswith('http'):
-                                id = self.e64(f'{0}@@@@{url}')
-                                plist.append(f"{label}${id}")
-            
-            plist.sort(key=custom_sort_key)
-            
-            # 2. 处理 HLS (m3u8)，通常 HLS 最稳定
-            if hls_sources:
-                for fmt, info in hls_sources.items():
-                    url = None
-                    # HLS 数据结构有时是字符串直接 URL，有时是字典
-                    if isinstance(info, str):
-                        url = info
-                    elif isinstance(info, dict):
-                        url = info.get('url')
+            # 2. HLS (m3u8) - 推荐
+            hls = sources.get('hls', {})
+            if hls:
+                for fmt, val in hls.items():
+                    u = ""
+                    if isinstance(val, str): u = val
+                    elif isinstance(val, dict): u = val.get('url')
                     
-                    # [重要修复] 校验 URL 有效性
-                    if url and isinstance(url, str) and url.startswith('http'):
-                        encoded = self.e64(f'{0}@@@@{url}')
-                        # 将 HLS 放在列表前部，通常播放成功率更高
-                        plist.insert(0, f"{fmt} (HLS)${encoded}")
+                    if u and u.startswith('http'):
+                        # 把 m3u8 放前面
+                        plist.insert(0, f"HLS-{fmt}${self.e64('0@@@@'+u)}")
             
-            # 如果没有找到任何有效地址，尝试备用解析（虽然原代码逻辑未实现具体解析）
+            # 如果解析失败
             if not plist:
-                 plist = [f"解析失败(需验证)${self.e64(f'{1}@@@@{ids[0]}')}"]
+                plist.append(f"解析空(重试)${self.e64('1@@@@'+url)}")
 
         except Exception as e:
-            plist = [f"错误${self.e64(f'{1}@@@@{ids[0]}')}"]
-            print(f"获取视频信息失败: {str(e)}")
+            print(f"Error detail: {e}")
+            plist.append(f"Error${self.e64('1@@@@'+url)}")
         
         vod['vod_play_url'] = '#'.join(plist)
         return {'list': [vod]}
@@ -267,141 +239,142 @@ class Spider(Spider):
         return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item")), 'page': pg}
 
     def playerContent(self, flag, id, vipFlags):
-        ids = self.d64(id).split('@@@@')
-        url = ids[1]
-        
-        # m3u8 走本地代理处理跨域和 TS 拼接
-        if '.m3u8' in url: 
-            url = self.proxy(url, 'm3u8')
-        
-        return {
-            'parse': int(ids[0]),
-            'url': url,
-            'header': self.headers
-        }
+        try:
+            ids = self.d64(id).split('@@@@')
+            parse_type = int(ids[0])
+            url = ids[1]
+            
+            if '.m3u8' in url:
+                url = self.proxy(url, 'm3u8')
+            
+            return {
+                'parse': 0, # 直接播放
+                'url': url,
+                'header': self.headers
+            }
+        except:
+            return {'parse': 1, 'url': '', 'header': {}}
 
     def localProxy(self, param):
-        url = self.d64(param['url'])
-        if param.get('type') == 'm3u8':
-            return self.m3Proxy(url)
-        else:
-            return self.tsProxy(url)
+        try:
+            url = self.d64(param['url'])
+            type_ = param.get('type')
+            
+            if type_ == 'm3u8':
+                return self.m3Proxy(url)
+            elif type_ == 'ts':
+                return self.tsProxy(url)
+            elif type_ == 'img':
+                resp = self.session.get(url, stream=True, timeout=10, verify=False)
+                return [200, "image/jpeg", resp.content]
+        except Exception as e:
+            return [500, "text/plain", str(e)]
 
     def gethost(self):
-        try:
-            response = requests.get('https://xhamster.com',
-                                  proxies=self.proxies,
-                                  headers=self.headers,
-                                  allow_redirects=False,
-                                  timeout=5)
-            return response.headers.get('Location', 'https://xhamster.com')
-        except Exception as e:
-            print(f"获取主页失败: {str(e)}")
-            return "https://zn.xhamster.com"
-
-    def e64(self, text):
-        try:
-            text_bytes = text.encode('utf-8')
-            encoded_bytes = b64encode(text_bytes)
-            return encoded_bytes.decode('utf-8')
-        except:
-            return ""
-
-    def d64(self, encoded_text):
-        try:
-            encoded_bytes = encoded_text.encode('utf-8')
-            decoded_bytes = b64decode(encoded_bytes)
-            return decoded_bytes.decode('utf-8')
-        except:
-            return ""
+        # 已在 init 中硬编码，此方法留空或返回固定值
+        return "https://xhamster.com"
 
     def getlist(self, data):
         vlist = []
         for i in data.items():
-            vlist.append({
-                'vod_id': i('.role-pop').attr('href'),
-                'vod_name': i('.video-thumb-info a').text(),
-                'vod_pic': self.proxy(i('.role-pop img').attr('src')),
-                'vod_year': i('.video-thumb-info .video-thumb-views').text().split(' ')[0],
-                'vod_remarks': i('.role-pop div[data-role="video-duration"]').text(),
-                'style': {'ratio': 1.778, 'type': 'rect'}
-            })
+            try:
+                href = i('.role-pop').attr('href')
+                if not href: continue
+                
+                img = i('.role-pop img').attr('src')
+                if not img: img = i('img').attr('src')
+                
+                vlist.append({
+                    'vod_id': href,
+                    'vod_name': i('.video-thumb-info a').text(),
+                    'vod_pic': self.proxy(img),
+                    'vod_year': i('.video-thumb-info .video-thumb-views').text().split(' ')[0],
+                    'vod_remarks': i('.role-pop div[data-role="video-duration"]').text(),
+                    'style': {'ratio': 1.778, 'type': 'rect'}
+                })
+            except: continue
         return vlist
 
-    def getpq(self, path=''):
-        h = '' if path.startswith('http') else self.host
+    def getpq(self, path):
+        # 统一请求入口，处理域名拼接
+        if path.startswith('http'):
+            url = path
+        else:
+            if not path.startswith('/'): path = '/' + path
+            url = f"{self.host}{path}"
+            
         try:
-            response = self.session.get(f'{h}{path}', timeout=10).text
-            return pq(response)
+            # verify=False 是关键，防止盒子系统老旧报错
+            response = self.session.get(url, timeout=8, verify=False)
+            response.encoding = 'utf-8'
+            return pq(response.text)
         except Exception as e:
-            print(f"Request Error: {str(e)}")
-            return pq("")
+            print(f"Req Error: {e}")
+            return pq("<div></div>") # 返回空节点防止崩溃
 
     def getjsdata(self, data):
-        """
-        [修复3] 使用正则提取 JSON，比字符串分割更安全
-        """
-        vhtml = data("script[id='initials-script']").text()
+        # 健壮的JSON提取
         try:
-            # 尝试使用正则匹配 window.initials = {...};
-            pattern = r'window\.initials\s*=\s*({.+?});'
-            match = re.search(pattern, vhtml, re.DOTALL)
-            if match:
-                return json.loads(match.group(1))
+            txt = data("script[id='initials-script']").text()
+            if not txt: return {}
             
-            # 如果正则失败，回退到原来的分割方法，但增加安全性
-            part = vhtml.split('initials=')
-            if len(part) > 1:
-                content = part[-1].strip()
-                if content.endswith(';'):
-                    content = content[:-1]
-                return json.loads(content)
-            return {}
-        except Exception as e:
-            print(f"JSON解析错误: {str(e)}")
+            # 优先正则提取
+            m = re.search(r'window\.initials\s*=\s*({.*});', txt)
+            if m: return json.loads(m.group(1))
+            
+            # 备用分割法
+            part = txt.split('initials=')[-1].strip()
+            if part.endswith(';'): part = part[:-1]
+            return json.loads(part)
+        except:
             return {}
 
     def m3Proxy(self, url):
         try:
-            ydata = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=10)
-            data = ydata.content.decode('utf-8')
+            r = self.session.get(url, allow_redirects=True, timeout=10, verify=False)
+            content = r.text
             
-            # 修正基础URL获取逻辑
             base_url = url.rsplit('/', 1)[0]
-            
-            lines = data.strip().split('\n')
-            for index, line in enumerate(lines):
+            new_lines = []
+            for line in content.splitlines():
                 line = line.strip()
                 if not line or line.startswith('#'):
+                    new_lines.append(line)
                     continue
                 
-                # 处理 URL 拼接
-                if not line.startswith('http'):
-                    if line.startswith('/'):
-                        parsed = urlparse(url)
-                        line = f"{parsed.scheme}://{parsed.netloc}{line}"
+                # 补全URL
+                ts_url = line
+                if not ts_url.startswith('http'):
+                    if ts_url.startswith('/'):
+                        p = urlparse(url)
+                        ts_url = f"{p.scheme}://{p.netloc}{ts_url}"
                     else:
-                        line = f"{base_url}/{line}"
+                        ts_url = f"{base_url}/{ts_url}"
                 
-                # 将分片地址转为代理地址
-                lines[index] = self.proxy(line, 'ts')
+                new_lines.append(self.proxy(ts_url, 'ts'))
             
-            data = '\n'.join(lines)
-            return [200, "application/vnd.apple.mpegur", data]
-        except Exception as e:
-            print(f"m3Proxy Error: {e}")
-            return [500, "text/plain", str(e)]
+            return [200, "application/vnd.apple.mpegur", '\n'.join(new_lines)]
+        except:
+            return [500, "text/plain", "error"]
 
     def tsProxy(self, url):
         try:
-            # TS流需要 stream=True
-            resp = requests.get(url, headers=self.headers, proxies=self.proxies, stream=True, timeout=10)
-            return [200, resp.headers.get('Content-Type', 'video/mp2t'), resp.content]
+            r = self.session.get(url, stream=True, timeout=10, verify=False)
+            return [200, "video/mp2t", r.content]
         except:
             return [404, "text/plain", ""]
 
+    def e64(self, text):
+        try:
+            return b64encode(text.encode('utf-8')).decode('utf-8')
+        except: return ""
+
+    def d64(self, text):
+        try:
+            return b64decode(text.encode('utf-8')).decode('utf-8')
+        except: return ""
+
     def proxy(self, data, type='img'):
-        if data and len(self.proxies):
+        if data and self.proxies:
             return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
-        else:
-            return data
+        return data
