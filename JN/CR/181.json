@@ -4,6 +4,14 @@
   "sites": [
 
   { "key": "py_Phb", "name": "🔞🍑Pornhub", "type": 3, "api": "./Phb.py", "style": { "type": "rect", "ratio": 1.778 } },
+
+	  { "key": "py_Xhm1", "name": "c1", "type": 3, "api": "./1/1.py", "style": { "type": "rect", "ratio": 1.778 } },
+	  { "key": "py_Xhm2", "name": "C2", "type": 3, "api": "./1/2.py", "style": { "type": "rect", "ratio": 1.778 } },
+	  { "key": "py_Xhm3", "name": "C3", "type": 3, "api": "./1/3.py", "style": { "type": "rect", "ratio": 1.778 } },
+	  { "key": "py_Xhm4", "name": "C4", "type": 3, "api": "./1/4.py", "style": { "type": "rect", "ratio": 1.778 } },
+
+
+	  
   { "key": "py_Phb1", "name": "🔞测Pornhub", "type": 3, "api": "./phb1.py", "style": { "type": "rect", "ratio": 1.778 } },
 	  
   { "key": "py_Phb11", "name": "🔞测1Pornhub", "type": 3, "api": "./phb1-增强搜索存档.py", "style": { "type": "rect", "ratio": 1.778 } },
