@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 & 修复播放版
+# by @嗷呜 & 修复优化
 # Xhamster视频网站爬虫类
 
 import json
@@ -12,10 +12,6 @@ import requests
 from pyquery import PyQuery as pq
 from requests import Session
 
-# 禁用SSL警告，防止老旧设备报错
-import urllib3
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
 sys.path.append('..')
 from base.spider import Spider
 
@@ -24,37 +20,42 @@ class Spider(Spider):
     """Xhamster视频爬虫类"""
 
     def init(self, extend=""):
-        """初始化爬虫配置 - 恢复原版逻辑以保证列表加载"""
+        """
+        初始化爬虫配置
+        保留了 1.py 的结构，修改了 User-Agent 以修复视频地址获取
+        """
         try:
             self.proxies = json.loads(extend)
         except:
             self.proxies = {}
         
-        # [修复] 统一使用 Windows Chrome 123 的指纹，避免服务器返回假数据
+        # [重要修改] 将 User-Agent 改为 Windows 版
+        # 原版 Mac UA 会导致服务器返回加密的哈希链接，必须改成 Windows
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-            'sec-ch-ua': '"Google Chrome";v="123", "Not:A-Brand";v="8", "Chromium";v="123"',
-            'sec-ch-ua-mobile': '?0',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            'pragma': 'no-cache',
+            'cache-control': 'no-cache',
             'sec-ch-ua-platform': '"Windows"',
-            'sec-fetch-dest': 'document',
-            'sec-fetch-mode': 'navigate',
-            'sec-fetch-site': 'none',
-            'sec-fetch-user': '?1',
-            'Upgrade-Insecure-Requests': '1',
+            'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
             'dnt': '1',
+            'sec-ch-ua-mobile': '?0',
+            'origin': '',
+            'sec-fetch-site': 'cross-site',
+            'sec-fetch-mode': 'cors',
+            'sec-fetch-dest': 'empty',
+            'referer': '',
+            'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'priority': 'u=1, i',
         }
         
-        # 获取实际的主站域名 (原版逻辑，但增加了异常处理防止卡死)
+        # 获取主站域名
         self.host = self.gethost()
         
-        # 创建会话对象
         self.session = Session()
         self.headers.update({'origin': self.host, 'referer': f'{self.host}/'})
         self.session.proxies.update(self.proxies)
         self.session.headers.update(self.headers)
-        # 增加重试机制
+        # 设置连接超时，防止卡死
         self.session.mount('https://', requests.adapters.HTTPAdapter(max_retries=2))
 
     def getName(self):
@@ -70,6 +71,7 @@ class Spider(Spider):
         pass
 
     def homeContent(self, filter):
+        """首页分类（保持原版逻辑）"""
         result = {}
         cateManual = {
             "4K": "/4k",
@@ -92,10 +94,14 @@ class Spider(Spider):
         return result
 
     def homeVideoContent(self):
-        data = self.getpq("/")
-        return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item"))}
+        try:
+            data = self.getpq("/")
+            return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item"))}
+        except:
+            return {'list': []}
 
     def categoryContent(self, tid, pg, filter, extend):
+        """分类内容获取（保持原版逻辑，增加异常处理）"""
         vdata = []
         result = {}
         result['page'] = pg
@@ -157,7 +163,6 @@ class Spider(Spider):
             elif 'one_click' in tid:
                 result['pagecount'] = pg
                 tid = tid.split('click_')[-1]
-                # 增加容错，防止cdata丢失
                 if not hasattr(self, 'cdata'):
                      self.cdata = self.getjsdata(self.getpq('/categories'))
                 
@@ -181,14 +186,17 @@ class Spider(Spider):
 
     def detailContent(self, ids):
         """
-        [核心修复] 获取视频详情和播放地址
+        [核心修复] 视频解析逻辑
+        解决：1. 地址加密 2. 播放格式不兼容
         """
         url = ids[0]
         data = self.getpq(url)
         djs = self.getjsdata(data)
         
+        # 获取标题
         vn = data('meta[property="og:title"]').attr('content')
         if not vn: vn = data('h1').text()
+        if not vn: vn = "Video"
         
         vod = {
             'vod_name': vn,
@@ -199,7 +207,6 @@ class Spider(Spider):
         
         plist = []
         try:
-            # 尝试从不同路径获取源数据
             sources = {}
             if djs:
                 if 'xplayerSettings' in djs and 'sources' in djs['xplayerSettings']:
@@ -207,47 +214,43 @@ class Spider(Spider):
                 elif 'videoModel' in djs and 'sources' in djs['videoModel']:
                     sources = djs['videoModel']['sources']
 
-            # 1. 优先提取 HLS (m3u8) - 最稳定
+            # 1. 优先解析 HLS (m3u8) - 兼容性最好
             hls = sources.get('hls', {})
             if hls:
                 for fmt, info in hls.items():
                     link = ""
-                    if isinstance(info, str):
-                        link = info
-                    elif isinstance(info, dict):
-                        link = info.get('url', '')
+                    if isinstance(info, str): link = info
+                    elif isinstance(info, dict): link = info.get('url', '')
                     
-                    # [关键] 必须以 http 开头，防止获取到哈希值
+                    # 只有 http 开头才是真实地址，过滤掉 hash 值
                     if link and link.startswith('http'):
-                        # 0@@@@ 表示无需二次解析
+                        # 0@@@@ 表示无需再次解析
                         encoded = self.e64(f'0@@@@{link}')
                         plist.append(f"HLS-{fmt}${encoded}")
 
-            # 2. 提取 MP4 (Standard)
+            # 2. 解析 MP4
             std = sources.get('standard', {})
             if std:
-                # standard 下通常是 {h264: [...], av1: [...]}
                 for fmt, info_list in std.items():
                     if isinstance(info_list, list):
                         for item in info_list:
                             link = item.get('url') or item.get('fallback')
                             label = item.get('label', fmt)
-                            # 同样过滤无效链接
                             if link and link.startswith('http'):
                                 encoded = self.e64(f'0@@@@{link}')
                                 plist.append(f"{label}${encoded}")
             
-            # 3. 备用方案：如果JSON提取失败，尝试从页面 input 获取
+            # 3. 兜底：如果JSON没拿到，尝试网页元素
             if not plist:
                 inp = data('input#url-input').attr('value')
                 if inp and inp.startswith('http'):
-                    plist.append(f"备用线路${self.e64(f'0@@@@{inp}')}")
+                    plist.append(f"Line1${self.e64(f'0@@@@{inp}')}")
 
         except Exception as e:
             print(f"Detail Error: {e}")
         
         if not plist:
-            plist.append(f"解析失败(需更新)${self.e64(f'1@@@@{url}')}")
+            plist.append(f"解析失败(请重试)${self.e64(f'1@@@@{url}')}")
 
         vod['vod_play_url'] = '#'.join(plist)
         return {'list': [vod]}
@@ -260,11 +263,9 @@ class Spider(Spider):
         try:
             ids = self.d64(id).split('@@@@')
             url = ids[1]
-            
-            # m3u8 走本地代理处理，解决跨域和TS流问题
+            # m3u8 需要代理来处理跨域和ts流
             if '.m3u8' in url:
                 url = self.proxy(url, 'm3u8')
-            
             return {'parse': 0, 'url': url, 'header': self.headers}
         except:
             return {'parse': 1, 'url': '', 'header': self.headers}
@@ -279,52 +280,56 @@ class Spider(Spider):
         except: return [500, "text/plain", "error"]
 
     def gethost(self):
-        """获取真实域名 - 增加容错处理"""
+        """
+        [关键修复] 获取主域名
+        解决了之前代码在 init 中崩溃导致一直转圈的问题
+        """
         try:
-            # 3秒超时，如果失败则返回备用域名，防止APP卡死
+            # 增加 timeout 防止网络不好时卡死
+            # allow_redirects=False 才能拿到 301 Location
             response = requests.get('https://xhamster.com',
                                   proxies=self.proxies,
                                   headers=self.headers,
                                   allow_redirects=False,
-                                  verify=False,
-                                  timeout=3)
+                                  timeout=5,
+                                  verify=False) # 忽略 SSL 错误
+            
+            # 如果有跳转 (301/302)
             if 'Location' in response.headers:
                 return response.headers['Location'].rstrip('/')
-            return "https://xhamster.com"
-        except:
-            # 如果请求失败，直接返回常用的备用域名，确保APP能进界面
+            
+            # 如果直接访问成功 (200)，说明不需要跳转
+            elif response.status_code == 200:
+                return "https://xhamster.com"
+            
+            # 其他情况备用
+            return "https://zn.xhamster.com"
+        except Exception as e:
+            print(f"Host Error: {e}")
             return "https://zn.xhamster.com"
 
     def getpq(self, path=''):
         h = '' if path.startswith('http') else self.host
         url = f'{h}{path}'
         try:
-            # verify=False 很重要，解决盒子SSL报错
             response = self.session.get(url, timeout=10, verify=False)
             response.encoding = 'utf-8'
             return pq(response.text)
-        except Exception as e:
-            print(f"PQ Error: {e}")
+        except:
             return pq("")
 
     def getjsdata(self, data):
-        """
-        [优化] 使用正则提取JSON，比字符串分割更健壮
-        """
+        """[优化] 使用正则提取数据，防止报错"""
         html = data("script[id='initials-script']").text()
         if not html: return {}
         try:
-            # 尝试正则匹配
             match = re.search(r'window\.initials\s*=\s*({.*?});', html, re.DOTALL)
-            if match:
-                return json.loads(match.group(1))
+            if match: return json.loads(match.group(1))
             
-            # 尝试分割
             part = html.split('initials=')[-1].strip()
             if part.endswith(';'): part = part[:-1]
             return json.loads(part)
-        except:
-            return {}
+        except: return {}
 
     def getlist(self, data):
         vlist = []
