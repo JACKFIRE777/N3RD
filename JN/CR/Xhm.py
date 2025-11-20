@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-# 完整修复版（菜单已恢复，播放已修复）
+# 完整修复版（严格保留原版结构，仅修复播放逻辑）
+# by @嗷呜 
 import json
 import sys
 from base64 import b64decode, b64encode
@@ -11,18 +12,18 @@ from requests import Session
 sys.path.append('..')
 from base.spider import Spider
 
+
 class Spider(Spider):
 
     def init(self, extend=""):
         """
-        初始化
+        初始化：设置代理、Session 和默认 headers
+        extend: json 字符串形式的 proxies 配置
         """
         try:
             self.proxies = json.loads(extend)
         except Exception:
             self.proxies = {}
-        
-        # 恢复原版 Headers 配置，并确保 Session 统一
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5410.0 Safari/537.36',
             'pragma': 'no-cache',
@@ -39,20 +40,22 @@ class Spider(Spider):
             'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
             'priority': 'u=1, i',
         }
-        
-        self.session = Session()
         self.host = self.gethost()
+        self.session = Session()
+        # 如果 gethost 返回空，会使用默认
         if not self.host:
             self.host = "https://xhamster.com"
-            
         self.headers.update({'origin': self.host, 'referer': f'{self.host}/'})
         self.session.proxies.update(self.proxies)
         self.session.headers.update(self.headers)
+        pass
 
     def getName(self):
+        # 可自定义爬虫名
         return "XHamster"
 
     def isVideoFormat(self, url):
+        # 简单判断是否为视频文件
         try:
             url = url.lower()
             return any(url.endswith(ext) for ext in ['.m3u8', '.mp4', '.ts'])
@@ -60,9 +63,11 @@ class Spider(Spider):
             return False
 
     def manualVideoCheck(self):
+        # 可选实现：手动视频校验逻辑
         return []
 
     def destroy(self):
+        # 清理资源
         try:
             self.session.close()
         except Exception:
@@ -70,7 +75,7 @@ class Spider(Spider):
 
     def homeContent(self, filter):
         """
-        一级菜单逻辑（完全恢复原版）
+        保留用户要求的一级菜单（cateManual），并返回 filters（保持原逻辑）
         """
         result = {}
         cateManual = {
@@ -89,6 +94,7 @@ class Spider(Spider):
                 'type_name': k,
                 'type_id': cateManual[k]
             })
+            # 原代码对非 4K 添加 filters（保持）
             if k != '4K':
                 filters[cateManual[k]] = [{'key': 'type', 'name': '类型', 'value': [{'n': '4K', 'v': '/4k'}]}]
         result['class'] = classes
@@ -102,21 +108,15 @@ class Spider(Spider):
     def categoryContent(self, tid, pg, filter, extend):
         vdata = []
         result = {}
-        pg = str(pg) # 确保 pg 是字符串
         result['page'] = pg
         result['pagecount'] = 9999
         result['limit'] = 90
         result['total'] = 999999
-        
         if tid in ['/4k', '/newest', '/best'] or 'two_click_' in tid:
             if 'two_click_' in tid:
                 tid = tid.split('click_')[-1]
-            # 拼接 URL，处理 extend
-            suffix = extend.get("type", "")
-            url_path = f'{tid}{suffix}/{pg}'
-            data = self.getpq(url_path)
+            data = self.getpq(f'{tid}{extend.get("type", "")}/{pg}')
             vdata = self.getlist(data(".thumb-list--sidebar .thumb-list__item"))
-            
         elif tid == '/channels':
             data = self.getpq(f'{tid}/{pg}')
             jsdata = self.getjsdata(data)
@@ -157,25 +157,26 @@ class Spider(Spider):
         elif 'one_click' in tid:
             result['pagecount'] = pg
             tid = tid.split('click_')[-1]
-            if hasattr(self, 'cdata'):
-                 for i in self.cdata.get('layoutPage', {}).get('store', {}).get('popular', {}).get('assignable', []):
-                    if i.get('id') == tid:
-                        for j in i.get('items', []):
-                            vdata.append({
-                                'vod_id': f"two_click_" + j.get('url', ''),
-                                'vod_name': j.get('name', ''),
-                                'vod_pic': self.proxy(j.get('thumb')),
-                                'vod_tag': 'folder',
-                                'style': {'ratio': 1.778, 'type': 'rect'}
-                            })
+            for i in self.cdata.get('layoutPage', {}).get('store', {}).get('popular', {}).get('assignable', []):
+                if i.get('id') == tid:
+                    for j in i.get('items', []):
+                        vdata.append({
+                            'vod_id': f"two_click_" + j.get('url', ''),
+                            'vod_name': j.get('name', ''),
+                            'vod_pic': self.proxy(j.get('thumb')),
+                            'vod_tag': 'folder',
+                            'style': {'ratio': 1.778, 'type': 'rect'}
+                        })
         result['list'] = vdata
         return result
 
     def detailContent(self, ids):
-        if isinstance(ids, list):
-            ids = ids[0]
-        
-        data = self.getpq(ids)
+        """
+        关键修复点：兼容 xplayerSettings.sources 新结构（standard + hls），优先使用标准 URL（standard.list）和 hls
+        输出格式： quality$base64(flag@@@@url)
+        flag 使用 0 表示直接播放器可播放，备用 fallback 使用 1 表示页面地址
+        """
+        data = self.getpq(ids[0])
         djs = self.getjsdata(data)
 
         vn = data('meta[property="og:title"]').attr('content') or ''
@@ -183,7 +184,7 @@ class Spider(Spider):
         href = dtext('a').attr('href')
         title = dtext('span[class*="body-bold-"]').eq(0).text() if dtext else ''
         pdtitle = ''
-        if href and title:
+        if href:
             pdtitle = '[a=cr:' + json.dumps({'id': 'two_click_' + href, 'name': title}) + '/]' + title + '[/a]'
 
         vod = {
@@ -195,10 +196,11 @@ class Spider(Spider):
         }
 
         plist = []
+
         try:
             xsrc = djs.get('xplayerSettings', {}).get('sources', {})
 
-            # 解析 standard (mp4/直链)
+            # standard 可能是一个字典，里面每个 key 对应一个质量数组
             std = xsrc.get("standard", {}) or {}
             for qname, arr in std.items():
                 if isinstance(arr, list):
@@ -206,11 +208,10 @@ class Spider(Spider):
                         real = item.get("url") or item.get("fallback")
                         lbl = item.get("label") or item.get("quality") or qname
                         if real:
-                            # 0@@@@url 表示直接播放
                             b64 = self.e64(f"0@@@@{real}")
                             plist.append(f"{lbl}${b64}")
 
-            # 解析 hls (m3u8)
+            # hls 字段通常是一个字典，key = 质量，value = {url: '...'}
             hls = xsrc.get("hls", {}) or {}
             for qname, obj in hls.items():
                 real = None
@@ -219,237 +220,260 @@ class Spider(Spider):
                 elif isinstance(obj, str):
                     real = obj
                 if real:
-                    # 0@@@@url
                     b64 = self.e64(f"0@@@@{real}")
                     plist.append(f"{qname}${b64}")
 
-            # 去重逻辑
+            # 去重并排序：按质量名中数字降序（例如 1080, 720 ...）
+            def sort_key(s):
+                name = s.split('$')[0]
+                num = ''.join(filter(str.isdigit, name))
+                num = int(num) if num else 0
+                return -num
+
+            # 先尝试去重（以 URL 为准）
             seen_urls = set()
             unique_plist = []
             for entry in plist:
                 try:
-                    q, b64 = entry.split('$', 1)
-                    raw = self.d64(b64).split('@@@@', 1)
-                    url = raw[1] if len(raw) > 1 else ""
-                    if url and url not in seen_urls:
-                        seen_urls.add(url)
-                        unique_plist.append(entry)
-                except:
-                    pass
-            
-            # 排序
-            def sort_key(s):
-                name = s.split('$')[0]
-                import re
-                num = re.findall(r'\d+', name)
-                return -int(num[0]) if num else 0
-            
+                    _, b64 = entry.split('$', 1)
+                    url = self.d64(b64).split('@@@@', 1)[1]
+                except Exception:
+                    url = entry
+                if url not in seen_urls:
+                    seen_urls.add(url)
+                    unique_plist.append(entry)
             unique_plist.sort(key=sort_key)
             plist = unique_plist
 
-            # 兜底
+            # 如果没有任何解析到的播放源，作为兜底使用页面地址
             if not plist:
-                plist = [f"{vn}${self.e64(f'1@@@@{ids}')}"]
+                plist = [f"{vn}${self.e64(f'1@@@@{ids[0]}')}"]
 
         except Exception as e:
-            print(f"解析播放源错误: {e}")
-            plist = [f"{vn}${self.e64(f'1@@@@{ids}')}"]
+            print("播放源解析失败：", str(e))
+            plist = [f"{vn}${self.e64(f'1@@@@{ids[0]}')}"]
 
         vod['vod_play_url'] = '#'.join(plist)
         return {'list': [vod]}
 
     def searchContent(self, key, quick, pg="1"):
-        pg = str(pg)
         data = self.getpq(f'/search/{key}?page={pg}')
         return {'list': self.getlist(data(".thumb-list--sidebar .thumb-list__item")), 'page': pg}
 
-    # ==========================================
-    # 核心修复区域：playerContent 和 m3Proxy
-    # ==========================================
-
     def playerContent(self, flag, id, vipFlags):
         """
-        核心修复：对 m3u8 进行预请求，跟随重定向获取带 Token 的真实 URL，然后再代理。
+        [修复版]
+        处理播放地址：
+        1. 解码 ID。
+        2. 如果是 m3u8，发起一次 302 跳转检测，获取真实 Token 地址。
+        3. 将真实地址封装到 proxy 中返回。
         """
         ids = self.d64(id).split('@@@@')
         url = ids[1] if len(ids) > 1 else ''
         
-        final_url = url
+        real_url = url
         
-        # 如果是 m3u8，尝试跟随跳转获取真实地址 (Token)
-        if url and url.lower().endswith('.m3u8'):
+        # 针对 m3u8 进行 302 跳转探测
+        if url.lower().endswith(".m3u8"):
             try:
-                # 必须使用 Session 保持连接状态，allow_redirects=True 自动跳转
-                r = self.session.get(url, allow_redirects=True, timeout=10)
-                # 如果跳转成功，r.url 就是带 token 的地址
+                # 使用 requests 发起 HEAD 或 GET 请求跟随跳转
+                r = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=10, stream=True)
+                # 获取最终跳转后的 URL (包含 Token)
                 if r.status_code < 400:
-                    final_url = r.url
-                else:
-                    final_url = url
+                    real_url = r.url
+                r.close()
             except Exception as e:
-                print(f"m3u8 跳转获取失败: {e}")
-                final_url = url
+                print(f"m3u8 jump failed: {e}")
+                real_url = url
             
-            # 最终地址必须经过本地代理处理，以便后续解析 TS
-            final_url = self.proxy(final_url, "m3u8")
-            
-        elif url:
-            # MP4 直链或其他，也建议走代理以隐藏 IP 或处理 Headers
-            ext = url.split('.')[-1] if '.' in url else 'video'
-            final_url = self.proxy(url, ext)
+            # 必须通过本地代理转发，因为 m3u8 内部的 TS 也是相对路径或需要 Cookie
+            real_url = self.proxy(real_url, "m3u8")
+        else:
+            # MP4 直链等也走代理，防止防盗链
+            real_url = self.proxy(url, "mp4")
 
-        return {
-            'parse': int(ids[0]) if ids and ids[0].isdigit() else 0,
-            'url': final_url,
-            'header': self.headers
-        }
+        return {'parse': int(ids[0]) if ids and ids[0].isdigit() else 0, 'url': real_url, 'header': self.headers}
 
     def localProxy(self, param):
+        """
+        本地代理入口：区分 m3u8 和 ts（或其他）
+        """
         url = self.d64(param['url'])
-        type_ = param.get('type')
-        
-        if type_ == 'm3u8':
+        if param.get('type') == 'm3u8':
             return self.m3Proxy(url)
         else:
             return self.tsProxy(url)
 
-    def m3Proxy(self, url):
-        """
-        m3u8 本地代理：下载列表，将所有切片路径转换为本地代理地址
-        """
-        try:
-            # 使用 session 获取内容
-            r = self.session.get(url, allow_redirects=True, timeout=15)
-            content = r.text
-            
-            # 修正 m3u8 中的 URL
-            base_url = url.rsplit('/', 1)[0]
-            parsed = urlparse(url)
-            host_url = f"{parsed.scheme}://{parsed.netloc}"
-            
-            lines = content.split('\n')
-            new_lines = []
-            for line in lines:
-                line = line.strip()
-                if not line or line.startswith('#'):
-                    new_lines.append(line)
-                    continue
-                
-                # 计算绝对路径
-                real_ts_url = line
-                if not line.startswith('http'):
-                    if line.startswith('/'):
-                        real_ts_url = host_url + line
-                    else:
-                        real_ts_url = base_url + '/' + line
-                
-                # 将 TS 地址封装进本地代理
-                new_lines.append(self.proxy(real_ts_url, "ts"))
-            
-            return [200, "application/vnd.apple.mpegurl", '\n'.join(new_lines)]
-            
-        except Exception as e:
-            print(f"m3Proxy Error: {e}")
-            return [500, "text/plain", "Error loading m3u8"]
-
-    def tsProxy(self, url):
-        """
-        TS 切片代理：流式传输二进制数据
-        """
-        try:
-            r = self.session.get(url, stream=True, timeout=20)
-            return [200, r.headers.get('Content-Type', 'video/MP2T'), r.content]
-        except Exception as e:
-            print(f"tsProxy Error: {e}")
-            return [500, "application/octet-stream", b'']
-
-    def proxy(self, data, type='img'):
-        try:
-            if data and len(self.proxies) > 0:
-                return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
-            else:
-                return data
-        except Exception:
-            return data
-
     def gethost(self):
+        """
+        更稳健的获取主域名方法：优先尝试请求并处理 3xx 重定向 Location，否则退回默认
+        """
         try:
+            # 使用 allow_redirects=False 来获取 Location header，如果没有再尝试 allow_redirects=True
             try:
-                r = requests.get('https://xhamster.com', headers=self.headers, proxies=self.proxies, allow_redirects=False, timeout=5)
-                if r.status_code in [301, 302] and 'Location' in r.headers:
-                    return r.headers['Location'].rstrip('/')
-            except:
-                pass
-            r = requests.get('https://xhamster.com', headers=self.headers, proxies=self.proxies, timeout=10)
-            p = urlparse(r.url)
-            return f"{p.scheme}://{p.netloc}"
-        except:
-            return "https://xhamster.com"
+                response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=False, timeout=10)
+                if response.status_code in (301, 302) and response.headers.get('Location'):
+                    return response.headers['Location'].rstrip('/')
+                # 如果没有 Location，则直接使用最终 URL（有时会被重定向到区域站点）
+            except Exception:
+                response = requests.get('https://xhamster.com', proxies=self.proxies, headers=self.headers, allow_redirects=True, timeout=10)
+            # 尝试从 response.url 提取主机
+            if response and hasattr(response, 'url'):
+                parsed = urlparse(response.url)
+                return f"{parsed.scheme}://{parsed.netloc}"
+        except Exception as e:
+            print(f"获取主页失败: {str(e)}")
+        # 兜底
+        return "https://zn.xhamster.com"
 
     def e64(self, text):
         try:
-            return b64encode(text.encode('utf-8')).decode('utf-8')
-        except:
+            text_bytes = text.encode('utf-8')
+            encoded_bytes = b64encode(text_bytes)
+            return encoded_bytes.decode('utf-8')
+        except Exception as e:
+            print(f"Base64编码错误: {str(e)}")
             return ""
 
-    def d64(self, text):
+    def d64(self, encoded_text):
         try:
-            return b64decode(text.encode('utf-8')).decode('utf-8')
-        except:
+            encoded_bytes = encoded_text.encode('utf-8')
+            decoded_bytes = b64decode(encoded_bytes)
+            return decoded_bytes.decode('utf-8')
+        except Exception as e:
+            print(f"Base64解码错误: {str(e)}")
             return ""
 
     def getlist(self, data):
         vlist = []
         for i in data.items():
-            href = i('.role-pop').attr('href')
-            if not href: continue
-            
-            name = i('.video-thumb-info a').text()
-            img = i('.role-pop img')
-            pic = img.attr('src') or img.attr('data-src') or ''
-            
-            views = i('.video-thumb-info .video-thumb-views').text()
-            dur = i('.role-pop div[data-role="video-duration"]').text()
-            
+            # 使用更健壮的选择器和空值保护
+            href = i('.role-pop').attr('href') or ''
+            name = i('.video-thumb-info a').text() or ''
+            pic = i('.role-pop img').attr('src') or ''
+            views_text = i('.video-thumb-info .video-thumb-views').text() or ''
+            duration = i('.role-pop div[data-role="video-duration"]').text() or ''
             vlist.append({
                 'vod_id': href,
                 'vod_name': name,
                 'vod_pic': self.proxy(pic),
-                'vod_year': views.split()[0] if views else '',
-                'vod_remarks': dur,
+                'vod_year': views_text.split(' ')[0] if views_text else '',
+                'vod_remarks': duration,
                 'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
     def getpq(self, path=''):
+        """
+        获取页面并返回 PyQuery 对象。path 可以是完整 URL 或相对 path。
+        """
+        h = '' if path.startswith('http') else self.host
         try:
-            url = path if path.startswith('http') else f'{self.host}{path}'
-            r = self.session.get(url, timeout=15)
-            r.encoding = r.apparent_encoding
-            return pq(r.text)
-        except:
-            return pq('')
+            response = self.session.get(f'{h}{path}', timeout=15)
+            response.encoding = response.apparent_encoding
+            text = response.text
+        except Exception as e:
+            print(f"请求失败 {h}{path} : {e}")
+            # 兜底返回空文档
+            text = ''
+        try:
+            return pq(text)
+        except Exception as e:
+            # 如果解析失败，尝试以 utf-8 bytes 再解析
+            try:
+                return pq(text.encode('utf-8'))
+            except Exception:
+                print(str(e))
+                return pq('')
 
     def getjsdata(self, data):
+        """
+        从页面中提取 id='initials-script' 的脚本内 JSON 数据，兼容多种写法
+        """
         try:
-            txt = ""
-            script = data("script[id='initials-script']")
-            if script:
-                txt = script.text()
-            else:
-                for s in data("script").items():
-                    if 'initials=' in s.text():
-                        txt = s.text()
+            vhtml = data("script[id='initials-script']").text()
+            if not vhtml:
+                # 尝试匹配包含 initials= 的脚本
+                scripts = data("script").items()
+                for s in scripts:
+                    txt = s.text()
+                    if 'initials=' in txt:
+                        vhtml = txt
                         break
-            
-            if not txt: return {}
-            
-            if 'initials=' in txt:
-                json_str = txt.split('initials=', 1)[1].strip()
-                if json_str.endswith(';'): json_str = json_str[:-1]
-                if json_str.endswith(')'): 
-                     json_str = json_str.rsplit('}', 1)[0] + '}'
-                return json.loads(json_str)
-            return json.loads(txt)
-        except:
+            if not vhtml:
+                return {}
+            # 找到 initials= 后取 JSON
+            if 'initials=' in vhtml:
+                jpart = vhtml.split('initials=', 1)[-1].strip()
+                # 去掉结尾的 ; 或 var 等
+                if jpart.endswith(';'):
+                    jpart = jpart[:-1]
+                return json.loads(jpart)
+            # fallback 直接尝试 json.loads
+            return json.loads(vhtml)
+        except Exception as e:
+            print(f"解析页面内 JS 数据失败: {e}")
             return {}
+
+    def m3Proxy(self, url):
+        """
+        [修复版]
+        代理 m3u8：下载 m3u8 内容，修复切片路径
+        """
+        try:
+            r = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True, timeout=15)
+            text = r.text
+        except Exception as e:
+            print(f"获取 m3u8 失败: {e}")
+            return [500, "text/plain", ""]
+
+        base = url.rsplit('/', 1)[0]
+        parsed = urlparse(url)
+        host = parsed.scheme + "://" + parsed.netloc
+
+        lines = text.strip().split('\n')
+        new_lines = []
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                new_lines.append(line)
+                continue
+            
+            # 路径修复逻辑
+            if line.startswith('http'):
+                real = line
+            elif line.startswith('/'):
+                real = host + line
+            else:
+                real = base + "/" + line
+            
+            # 转为本地代理，type='ts'
+            new_lines.append(self.proxy(real, 'ts'))
+            
+        data = '\n'.join(new_lines)
+        return [200, "application/vnd.apple.mpegurl", data]
+
+    def tsProxy(self, url):
+        """
+        代理 ts 或其他媒体片段：直接请求并返回二进制
+        """
+        try:
+            # stream=True 避免一次性加载大文件到内存
+            data = requests.get(url, headers=self.headers, proxies=self.proxies, stream=True, timeout=20)
+            return [200, data.headers.get('Content-Type', 'application/octet-stream'), data.content]
+        except Exception as e:
+            print(f"请求 TS 文件失败: {e}")
+            return [500, "application/octet-stream", b'']
+
+    def proxy(self, data, type='img'):
+        """
+        生成代理链接
+        """
+        try:
+            if data and len(self.proxies):
+                return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
+            else:
+                return data
+        except Exception as e:
+            print(f"proxy 生成失败: {e}")
+            return data
