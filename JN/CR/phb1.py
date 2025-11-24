@@ -101,24 +101,25 @@ class Spider(Spider):
             "明星": "/pornstars"
         }
         
-        # 🔥 修改筛选配置：视频分类的排序选项，添加 type: select
-        video_filters = {
-            'o': [
-                {'key': '', 'name': '最新精选'},
-                {'key': 'mv', 'name': '最多次观看'},
-                {'key': 'tr', 'name': '最高分'},
-                {'key': 'ht', 'name': '最热门'},
-                {'key': 'lg', 'name': '最长'},
-                {'key': 'cm', 'name': '最新'}
-            ],
-            # 为筛选器字段 o 添加样式，强制以下拉框形式展示
-            'ext': {
-                'o': {
-                    'name': '排序', # 可以在这里添加筛选器的显示名称
-                    'type': 'select', # 关键修改：强制以下拉选择框形式展示
-                }
-            }
+# 🔥 修改筛选配置：视频分类的排序选项，添加 type: select        
+video_filters = {
+    'o': [
+        {'key': '', 'name': '最新精选'},
+        {'key': 'mv', 'name': '最多次观看'}, 
+        {'key': 'tr', 'name': '最高分'},
+        {'key': 'ht', 'name': '最热门'},
+        {'key': 'lg', 'name': '最长'},
+        {'key': 'cm', 'name': '最新'}
+    ],
+    # 关键修改：在筛选器字段 o 的同级添加 type 属性
+    'o_type': 'select',  # 这里指定该筛选器使用下拉框形式
+    'ext': {
+        'o': {
+            'name': '排序',  # 筛选器的显示名称
+            # 注意：type 已经移到外面的 o_type 字段
         }
+    }
+}
 
 
         classes = []
