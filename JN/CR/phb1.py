@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 (modified to add keyword-driven top-level categories)
+# by @嗷呜 (modified to add filters for all categories)
 import json
 import re
 import sys
@@ -84,21 +84,62 @@ class Spider(Spider):
             "明星": "/pornstars"
         }
 
-        # 🔥 修复部分：使用标准列表格式定义筛选器
-        # key: url参数名
-        # name: 左侧显示的标题
-        # value: 选项列表 (n=显示名, v=参数值)
+        # ---------------- 定义各类筛选器 (List格式确保横向显示) ----------------
+        
+        # 1. 视频 & 搜索 & 关键字 通用筛选
         video_filters = [
             {
                 "key": "o",
-                "name": "排序方式",
+                "name": "排序",
                 "value": [
                     {"n": "最新精选", "v": ""},
-                    {"n": "最多次观看", "v": "mv"},
+                    {"n": "最多观看", "v": "mv"}, # Most Viewed
+                    {"n": "最高评分", "v": "tr"}, # Top Rated
+                    {"n": "最热门", "v": "ht"},   # Hot
+                    {"n": "最长视频", "v": "lg"}, # Longest
+                    {"n": "最新发布", "v": "cm"}  # Newest
+                ]
+            }
+        ]
+
+        # 2. 片单筛选
+        playlist_filters = [
+            {
+                "key": "o",
+                "name": "排序",
+                "value": [
+                    {"n": "最多观看", "v": "mv"},
                     {"n": "最高评分", "v": "tr"},
-                    {"n": "最热门", "v": "ht"},
-                    {"n": "最长视频", "v": "lg"},
-                    {"n": "最新发布", "v": "cm"}
+                    {"n": "最新创建", "v": "cm"}, # Recent
+                    {"n": "首字母", "v": "a"}
+                ]
+            }
+        ]
+
+        # 3. 频道筛选
+        channel_filters = [
+            {
+                "key": "o",
+                "name": "排序",
+                "value": [
+                    {"n": "综合排名", "v": "rk"}, # Rank
+                    {"n": "最多观看", "v": "mv"},
+                    {"n": "最多订阅", "v": "ms"}, # Most Subscribed
+                    {"n": "首字母", "v": "a"}
+                ]
+            }
+        ]
+
+        # 4. 明星筛选
+        star_filters = [
+            {
+                "key": "o",
+                "name": "排序",
+                "value": [
+                    {"n": "最多订阅", "v": "ms"},
+                    {"n": "最多观看", "v": "mv"},
+                    {"n": "热门趋势", "v": "t"}, # Trending
+                    {"n": "首字母", "v": "a"}
                 ]
             }
         ]
@@ -106,21 +147,31 @@ class Spider(Spider):
         classes = []
         filters = {}
 
+        # 生成静态分类并绑定对应筛选器
         for k in cateManual:
             classes.append({
                 'type_name': k,
                 'type_id': cateManual[k]
             })
-            # 仅为 '视频' 添加筛选器
+            
             if k == '视频':
                 filters[cateManual[k]] = video_filters
+            elif k == '片单':
+                filters[cateManual[k]] = playlist_filters
+            elif k == '频道':
+                filters[cateManual[k]] = channel_filters
+            elif k == '明星':
+                filters[cateManual[k]] = star_filters
+            # '分类' (/categories) 本身是目录，不需要筛选，但点进去是视频列表(由/video逻辑处理)
 
-        # 自动加入 keyword_list 为一级分类
+        # 生成关键字分类 (统一使用视频筛选器)
         for kw in keyword_list:
+            tid = f"keyword__{kw}"
             classes.append({
                 'type_name': kw,
-                'type_id': f"keyword__{kw}"
+                'type_id': tid
             })
+            filters[tid] = video_filters
 
         result['class'] = classes
         result['filters'] = filters
@@ -140,11 +191,13 @@ class Spider(Spider):
             'total': 999999
         }
 
-        # ---------------- 关键字分类处理 ----------------
+        # ---------------- 关键字分类处理 (对接筛选) ----------------
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
             real_kw = keyword_map.get(kw, kw)
-            return self.searchContent(real_kw, quick=False, pg=pg)
+            # 传递 extend['o'] 给 searchContent
+            sort_opt = extend.get('o') if extend else None
+            return self.searchContent(real_kw, quick=False, pg=pg, sort=sort_opt)
 
         # ---------------- 视频分类 ----------------
         if tid == '/video' or '_this_video' in tid:
@@ -177,9 +230,15 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # ---------------- 片单 ----------------
+        # ---------------- 片单 (新增筛选支持) ----------------
         if tid == '/playlists':
-            data = self.getpq(f'{tid}?page={pg}')
+            # 获取排序参数，默认为空(网站默认)
+            sort = extend.get('o', '') if extend else ''
+            url = f'{tid}?page={pg}'
+            if sort:
+                url += f"&o={sort}"
+            
+            data = self.getpq(url)
             vhtml = data('#playListSection li')
             for i in vhtml.items():
                 pic_url = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
@@ -194,9 +253,12 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # ---------------- 频道 ----------------
+        # ---------------- 频道 (新增筛选支持) ----------------
         if tid == '/channels':
-            data = self.getpq(f'{tid}?o=rk&page={pg}')
+            # 默认排序为 rk (Rank/Popular)
+            sort = extend.get('o', 'rk') if extend else 'rk'
+            data = self.getpq(f'{tid}?o={sort}&page={pg}')
+            
             vhtml = data('#filterChannelsSection li .description')
             for i in vhtml.items():
                 raw_views = i('.descriptionContainer ul li').eq(-1).text()
@@ -222,7 +284,7 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # ---------------- 分类 ----------------
+        # ---------------- 分类 (列表) ----------------
         if tid == '/categories' and pg == '1':
             result['pagecount'] = 1
             data = self.getpq(f'{tid}')
@@ -238,9 +300,12 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # ---------------- 明星 ----------------
+        # ---------------- 明星 (新增筛选支持) ----------------
         if tid == '/pornstars':
-            data = self.getpq(f'{tid}?o=ms&page={pg}')
+            # 默认排序为 ms (Most Subscribed)
+            sort = extend.get('o', 'ms') if extend else 'ms'
+            data = self.getpq(f'{tid}?o={sort}&page={pg}')
+            
             vhtml = data('#popularPornstars .performerCard .wrap')
             for i in vhtml.items():
                 raw_views = i('.performerVideosViewsCount span').eq(-1).text()
@@ -343,9 +408,14 @@ class Spider(Spider):
         vod['vod_play_url'] = '#'.join(plist)
         return {'list': [vod]}
 
-    def searchContent(self, key, quick, pg="1"):
+    # 修改后的搜索接口，增加 sort 参数支持
+    def searchContent(self, key, quick, pg="1", sort=None):
         real_key = keyword_map.get(key, key)
-        data = self.getpq(f'/video/search?search={real_key}&page={pg}')
+        url = f'/video/search?search={real_key}&page={pg}'
+        if sort:
+            url += f"&o={sort}"
+            
+        data = self.getpq(url)
         return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem .phimage'))}
 
     def playerContent(self, flag, id, vipFlags):
