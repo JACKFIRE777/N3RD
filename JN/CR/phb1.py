@@ -88,7 +88,7 @@ class Spider(Spider):
     def destroy(self):
         pass
 
-    # 首页分类
+# 首页分类
     def homeContent(self, filter):
         result = {}
 
@@ -100,8 +100,11 @@ class Spider(Spider):
             "分类": "/categories",
             "明星": "/pornstars"
         }
-        
-# 🔥 修改筛选配置：视频分类的排序选项，添加 type: select
+
+                
+        # 🔥 修改筛选配置：
+        # 建议删除 'ext' 字段，改回默认的按钮模式，
+        # 这样选项会横向排列，不会因为下拉框位置太低而被遮挡。
         video_filters = {
             'o': [
                 {'key': '', 'name': '最新精选'},
@@ -110,19 +113,21 @@ class Spider(Spider):
                 {'key': 'ht', 'name': '最热门'},
                 {'key': 'lg', 'name': '最长'},
                 {'key': 'cm', 'name': '最新'}
-            ],
-            # 为筛选器字段 o 添加样式，强制以下拉框形式展示
-            'ext': {
-                'o': {
-                    'name': '排序', # 可以在这里添加筛选器的显示名称
-                    'type': 'select', # 关键修改：强制以下拉选择框形式展示
-                }
-            }
+            ]
+            # 注释掉下面这段 'ext' 内容即可解决显示不全的问题
+            # ,
+            # 'ext': {
+            #     'o': {
+            #         'name': '排序', 
+            #         'type': 'select', 
+            #     }
+            # }
         }
-
 
         classes = []
         filters = {}
+        
+
 
         # 生成原有结构
         for k in cateManual:
