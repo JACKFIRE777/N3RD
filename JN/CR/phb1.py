@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 (modified: add views/duration to remarks, standardized formatting)
+# by @嗷呜 (modified: 优化4K处理，优先兼容HLS，修复点击量显示)
 import json
 import re
 import sys
@@ -13,7 +13,7 @@ sys.path.append('..')
 from base.spider import Spider
 
 # ---------------------------
-# 用户可维护：一级关键字列表 & 映射（中文->实际搜索词）
+# 用户可维护：一级关键字列表 & 映射
 # ---------------------------
 keyword_list = ["中国", "日本","韩国","4K","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
@@ -28,8 +28,6 @@ keyword_map = {
     "奶头乐": "male nipple play", 
     "大屁股": "big ass"
 }
-# ---------------------------
-
 
 class Spider(Spider):
 
@@ -73,39 +71,22 @@ class Spider(Spider):
     def destroy(self):
         pass
 
-    # ---------------------------------------------------------
-    # 工具函数：格式化播放量 (1.2M -> 120万)
-    # ---------------------------------------------------------
+    # 工具函数：格式化播放量
     def format_views(self, raw_views):
-        if not raw_views:
-            return ""
-        
-        # 清理字符串，提取数字和单位
+        if not raw_views: return ""
         clean_str = raw_views.replace(',', '').replace(' ', '').upper()
-        # 匹配 数字 + 可选单位(B,M,K)
         match = re.search(r'([\d\.]+)([BMK]?)', clean_str)
-        
-        if not match:
-            return raw_views
-            
+        if not match: return raw_views
         value = float(match.group(1))
         unit = match.group(2)
-        
         num = value
-        if unit == 'B':      # Billion 10亿
-            num = value * 1000000000
-        elif unit == 'M':    # Million 百万
-            num = value * 1000000
-        elif unit == 'K':    # Kilo 千
-            num = value * 1000
-            
-        # 格式化输出
-        if num >= 100000000:
-            return f"{num / 100000000:.2f}亿"
-        elif num >= 10000:
-            return f"{num / 10000:.2f}万"
-        else:
-            return f"{int(num)}"
+        if unit == 'B': num = value * 1000000000
+        elif unit == 'M': num = value * 1000000
+        elif unit == 'K': num = value * 1000
+        
+        if num >= 100000000: return f"{num / 100000000:.2f}亿"
+        elif num >= 10000: return f"{num / 10000:.2f}万"
+        else: return f"{int(num)}"
 
     def homeContent(self, filter):
         result = {}
@@ -117,55 +98,22 @@ class Spider(Spider):
             "明星": "/pornstars"
         }
 
-        # 1. 视频/搜索/关键字 筛选
-        video_filters = [{
-            "key": "o",
-            "name": "排序",
-            "value": [
-                {"n": "最新精选", "v": ""},
-                {"n": "最多观看", "v": "mv"},
-                {"n": "最高评分", "v": "tr"},
-                {"n": "最热门", "v": "ht"},
-                {"n": "最长视频", "v": "lg"},
-                {"n": "最新发布", "v": "cm"}
-            ]
-        }]
+        video_filters = [{"key": "o", "name": "排序", "value": [
+            {"n": "最新精选", "v": ""}, {"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"},
+            {"n": "最热门", "v": "ht"}, {"n": "最长视频", "v": "lg"}, {"n": "最新发布", "v": "cm"}
+        ]}]
+        
+        playlist_filters = [{"key": "o", "name": "排序", "value": [
+            {"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"}, {"n": "最新创建", "v": "cm"}, {"n": "首字母", "v": "a"}
+        ]}]
 
-        # 2. 片单 筛选
-        playlist_filters = [{
-            "key": "o",
-            "name": "排序",
-            "value": [
-                {"n": "最多观看", "v": "mv"},
-                {"n": "最高评分", "v": "tr"},
-                {"n": "最新创建", "v": "cm"},
-                {"n": "首字母", "v": "a"}
-            ]
-        }]
+        channel_filters = [{"key": "o", "name": "排序", "value": [
+            {"n": "综合排名", "v": "rk"}, {"n": "最多观看", "v": "mv"}, {"n": "最多订阅", "v": "ms"}, {"n": "首字母", "v": "a"}
+        ]}]
 
-        # 3. 频道 筛选
-        channel_filters = [{
-            "key": "o",
-            "name": "排序",
-            "value": [
-                {"n": "综合排名", "v": "rk"},
-                {"n": "最多观看", "v": "mv"},
-                {"n": "最多订阅", "v": "ms"},
-                {"n": "首字母", "v": "a"}
-            ]
-        }]
-
-        # 4. 明星 筛选
-        star_filters = [{
-            "key": "o",
-            "name": "排序",
-            "value": [
-                {"n": "最多订阅", "v": "ms"},
-                {"n": "最多观看", "v": "mv"},
-                {"n": "热门趋势", "v": "t"},
-                {"n": "首字母", "v": "a"}
-            ]
-        }]
+        star_filters = [{"key": "o", "name": "排序", "value": [
+            {"n": "最多订阅", "v": "ms"}, {"n": "最多观看", "v": "mv"}, {"n": "热门趋势", "v": "t"}, {"n": "首字母", "v": "a"}
+        ]}]
 
         classes = []
         filters = {}
@@ -188,41 +136,30 @@ class Spider(Spider):
 
     def homeVideoContent(self):
         data = self.getpq('/recommended')
-        # 修改：传入 LI 父容器，而不是 .phimage，以便 getlist 能同时抓取时长和views
-        vhtml = data("#recommendedListings .pcVideoListItem")
-        return {'list': self.getlist(vhtml)}
+        return {'list': self.getlist(data("#recommendedListings .pcVideoListItem"))}
 
     def categoryContent(self, tid, pg, filter, extend):
-        vdata = []
         result = {'page': pg, 'pagecount': 9999, 'limit': 90, 'total': 999999}
+        vdata = []
 
         # 关键字
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
-            real_kw = keyword_map.get(kw, kw)
-            sort_opt = extend.get('o') if extend else None
-            return self.searchContent(real_kw, quick=False, pg=pg, sort=sort_opt)
+            return self.searchContent(keyword_map.get(kw, kw), quick=False, pg=pg, sort=extend.get('o') if extend else None)
 
         # 视频
         if tid == '/video' or '_this_video' in tid:
             base_tid = tid.split('_this_video')[0]
             params = {}
             if '?' in base_tid:
-                query_string = base_tid.split('?')[1]
-                for p in query_string.split('&'):
-                    if '=' in p:
-                        key, value = p.split('=', 1)
-                        params[key] = value
-
+                for p in base_tid.split('?')[1].split('&'):
+                    if '=' in p: k, v = p.split('=', 1); params[k] = v
             params['page'] = pg
             if extend and 'o' in extend: params['o'] = extend['o']
-
-            query_parts = [f"{k}={v}" for k, v in params.items() if v != '']
-            request_path = f"{base_tid.split('?')[0]}?{'&'.join(query_parts)}"
-
-            data = self.getpq(request_path)
-            vdata = self.getlist(data('#videoCategory .pcVideoListItem'))
-            result['list'] = vdata
+            
+            q_str = '&'.join([f"{k}={v}" for k, v in params.items() if v != ''])
+            data = self.getpq(f"{base_tid.split('?')[0]}?{q_str}")
+            result['list'] = self.getlist(data('#videoCategory .pcVideoListItem'))
             return result
 
         # 片单
@@ -232,11 +169,11 @@ class Spider(Spider):
             data = self.getpq(url)
             vhtml = data('#playListSection li')
             for i in vhtml.items():
-                pic_url = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
+                pic = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
                 vdata.append({
                     'vod_id': 'playlists_click_' + i('.thumbnail-info-wrapper .display-block a').attr('href'),
                     'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
-                    'vod_pic': self.proxy(pic_url),
+                    'vod_pic': self.proxy(pic),
                     'vod_tag': 'folder',
                     'vod_remarks': i('.playlist-videos .number').text(),
                     'style': {"type": "rect", "ratio": 1.778}
@@ -250,18 +187,13 @@ class Spider(Spider):
             data = self.getpq(f'{tid}?o={sort}&page={pg}')
             vhtml = data('#filterChannelsSection li .description')
             for i in vhtml.items():
-                raw_views = i('.descriptionContainer ul li').eq(-1).text()
-                # 使用新的工具函数
-                view_str = self.format_views(raw_views)
-                if view_str and view_str != raw_views:
-                    view_str = f"播放量：{view_str}"
-
+                views = self.format_views(i('.descriptionContainer ul li').eq(-1).text())
                 vdata.append({
                     'vod_id': 'director_click_' + i('.avatar a').attr('href'),
                     'vod_name': i('.avatar img').attr('alt'),
                     'vod_pic': self.proxy(i('.avatar img').attr('src')),
                     'vod_tag': 'folder',
-                    'vod_remarks': view_str,
+                    'vod_remarks': f"播放量：{views}" if views else "",
                     'style': {"type": "rect", "ratio": 1}
                 })
             result['list'] = vdata
@@ -289,19 +221,14 @@ class Spider(Spider):
             data = self.getpq(f'{tid}?o={sort}&page={pg}')
             vhtml = data('#popularPornstars .performerCard .wrap')
             for i in vhtml.items():
-                raw_views = i('.performerVideosViewsCount span').eq(-1).text()
-                # 使用新的工具函数
-                view_str = self.format_views(raw_views)
-                if view_str and view_str != raw_views:
-                    view_str = f"播放量：{view_str}"
-
+                views = self.format_views(i('.performerVideosViewsCount span').eq(-1).text())
                 vdata.append({
                     'vod_id': 'pornstars_click_' + i('a').attr('href'),
                     'vod_name': i('.performerCardName').text(),
                     'vod_pic': self.proxy(i('a img').attr('src')),
                     'vod_tag': 'folder',
                     'vod_year': i('.performerVideosViewsCount span').eq(0).text(),
-                    'vod_remarks': view_str,
+                    'vod_remarks': f"播放量：{views}" if views else "",
                     'style': {"type": "rect", "ratio": 1, "width": "150%"}
                 })
             result['list'] = vdata
@@ -313,39 +240,43 @@ class Spider(Spider):
             if pg == '1':
                 hdata = self.getpq(tid)
                 self.token = hdata('#searchInput').attr('data-token')
-                # 修改：传入 LI
-                vdata = self.getlist(hdata('#videoPlaylist .pcVideoListItem'))
+                result['list'] = self.getlist(hdata('#videoPlaylist .pcVideoListItem'))
             else:
                 tid = tid.split('playlist/')[-1]
                 data = self.getpq(f'/playlist/viewChunked?id={tid}&token={self.token}&page={pg}')
-                vdata = self.getlist(data('.pcVideoListItem'))
-            result['list'] = vdata
+                result['list'] = self.getlist(data('.pcVideoListItem'))
             return result
 
         if 'director_click' in tid:
             tid = tid.split('click_')[-1]
             data = self.getpq(f'{tid}/videos?page={pg}')
-            vdata = self.getlist(data('#showAllChanelVideos .pcVideoListItem'))
-            result['list'] = vdata
+            result['list'] = self.getlist(data('#showAllChanelVideos .pcVideoListItem'))
             return result
 
         if 'pornstars_click' in tid:
             tid = tid.split('click_')[-1]
             data = self.getpq(f'{tid}/videos?page={pg}')
-            vdata = self.getlist(data('#mostRecentVideosSection .pcVideoListItem'))
-            result['list'] = vdata
+            result['list'] = self.getlist(data('#mostRecentVideosSection .pcVideoListItem'))
             return result
 
         result['list'] = vdata
         return result
 
+    # ----------------------------------------------------------------------
+    # 🔥 重点修改：优化视频详情提取逻辑 (DetailContent)
+    # ----------------------------------------------------------------------
     def detailContent(self, ids):
         url = f"{self.host}{ids[0]}"
         data = self.getpq(ids[0])
         vn = data('meta[property="og:title"]').attr('content')
         dtext = data('.userInfo .usernameWrap a')
-        pdtitle = '[a=cr:' + json.dumps(
-            {'id': 'director_click_' + dtext.attr('href'), 'name': dtext.text()}) + '/]' + dtext.text() + '[/a]'
+        director = dtext.text() if dtext else "Unknown"
+        
+        if dtext:
+            pdtitle = '[a=cr:' + json.dumps(
+                {'id': 'director_click_' + dtext.attr('href'), 'name': director}) + '/]' + director + '[/a]'
+        else:
+            pdtitle = director
 
         vod = {
             'vod_name': vn,
@@ -356,7 +287,9 @@ class Spider(Spider):
         }
 
         js_content = data("#player script").eq(0).text()
-        plist = [f"{vn}${self.e64(f'{1}@@@@{url}')}"]
+        
+        # 默认兜底
+        play_urls = []
 
         try:
             pattern = r'"mediaDefinitions":\s*(\[.*?\]),\s*"isVertical"'
@@ -364,16 +297,49 @@ class Spider(Spider):
             if match:
                 json_str = match.group(1)
                 udata = json.loads(json_str)
-                plist = []
+                
+                # 临时列表
+                formats = []
+
                 for media in udata:
                     videoUrl = media.get('videoUrl') or media.get('videoUrlNoWatermark') or media.get('url')
                     if not videoUrl: continue
-                    height = media.get('height') or media.get('quality') or '0'
-                    plist.append(f"{height}${self.e64(f'{0}@@@@{videoUrl}')}")
-        except Exception as e:
-            print(f"提取mediaDefinitions失败: {str(e)}")
+                    
+                    height = str(media.get('height') or media.get('quality') or '0')
+                    fmt_type = media.get('format', '')
+                    
+                    # 优先级判断
+                    weight = 0
+                    if fmt_type == 'hls' or '.m3u8' in videoUrl:
+                        height = "自动(HLS)"
+                        weight = 100 # HLS 优先级最高
+                    elif height == '1080': weight = 90
+                    elif height == '720': weight = 80
+                    elif height == '480': weight = 70
+                    elif height == '240': weight = 60
+                    elif height == '2160' or height == '4k': weight = 10 # 4K 放到最后
+                    
+                    formats.append({
+                        'name': height,
+                        'url': videoUrl,
+                        'weight': weight
+                    })
 
-        vod['vod_play_url'] = '#'.join(plist)
+                # 按照权重排序 (权重高的排前面 -> 默认播放)
+                formats.sort(key=lambda x: x['weight'], reverse=True)
+                
+                for f in formats:
+                    # 0 flag 表示直接播放/MP4直连，如果是HLS会在playerContent里转代理
+                    play_urls.append(f"{f['name']}${self.e64(f'{0}@@@@{f['url']}')}")
+
+        except Exception as e:
+            print(f"提取失败: {str(e)}")
+
+        # 如果没提取到，用兜底
+        if not play_urls:
+            play_urls = [f"{vn}${self.e64(f'{1}@@@@{url}')}"]
+
+        vod['vod_play_url'] = '#'.join(play_urls)
         return {'list': [vod]}
 
     def searchContent(self, key, quick, pg="1", sort=None):
@@ -381,127 +347,96 @@ class Spider(Spider):
         url = f'/video/search?search={real_key}&page={pg}'
         if sort: url += f"&o={sort}"
         data = self.getpq(url)
-        # 修改：传入 LI
         return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem'))}
 
     def playerContent(self, flag, id, vipFlags):
         ids = self.d64(id).split('@@@@')
-        if '.m3u8' in ids[1]:
-            ids[1] = self.proxy(ids[1], 'm3u8')
-        return {'parse': int(ids[0]), 'url': ids[1], 'header': self.headers}
+        url = ids[1]
+        # 如果是 m3u8，走 m3u8 代理
+        if '.m3u8' in url:
+            url = self.proxy(url, 'm3u8')
+        # 否则直接返回原始链接（带Header），因为MP4过代理容易内存溢出
+        return {'parse': int(ids[0]), 'url': url, 'header': self.headers}
 
     def localProxy(self, param):
         url = self.d64(param.get('url'))
-        if param.get('type') == 'm3u8':
-            return self.m3Proxy(url)
-        else:
-            return self.tsProxy(url)
+        return self.m3Proxy(url) if param.get('type') == 'm3u8' else self.tsProxy(url)
 
     def m3Proxy(self, url):
-        ydata = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=False)
-        data = ydata.content.decode('utf-8')
-        if ydata.headers.get('Location'):
-            url = ydata.headers['Location']
-            data = requests.get(url, headers=self.headers, proxies=self.proxies).content.decode('utf-8')
+        try:
+            ydata = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True)
+            data = ydata.text
+            url = ydata.url # 获取最终跳转后的URL
+            
+            lines = data.strip().split('\n')
+            last_r = url[:url.rfind('/')]
+            parsed_url = urlparse(url)
+            durl = parsed_url.scheme + "://" + parsed_url.netloc
 
-        lines = data.strip().split('\n')
-        last_r = url[:url.rfind('/')]
-        parsed_url = urlparse(url)
-        durl = parsed_url.scheme + "://" + parsed_url.netloc
+            for index, string in enumerate(lines):
+                if '#EXT' not in string and string.strip():
+                    if not string.startswith('http'):
+                        domain = last_r if string.count('/') < 2 else durl
+                        string = domain + ('' if string.startswith('/') else '/') + string
+                    lines[index] = self.proxy(string, 'ts')
 
-        for index, string in enumerate(lines):
-            if '#EXT' not in string:
-                if 'http' not in string:
-                    domain = last_r if string.count('/') < 2 else durl
-                    string = domain + ('' if string.startswith('/') else '/') + string
-                lines[index] = self.proxy(string, string.split('.')[-1].split('?')[0])
-
-        data = '\n'.join(lines)
-        return [200, "application/vnd.apple.mpegur", data]
+            return [200, "application/vnd.apple.mpegur", '\n'.join(lines)]
+        except:
+            return [500, "text/plain", "failed"]
 
     def tsProxy(self, url):
-        data = requests.get(url, headers=self.headers, proxies=self.proxies, stream=True)
-        return [200, data.headers['Content-Type'], data.content]
+        try:
+            # 增加 stream=True 避免大文件内存溢出
+            data = requests.get(url, headers=self.headers, proxies=self.proxies, stream=True)
+            return [200, data.headers.get('Content-Type', 'video/MP2T'), data.content]
+        except:
+             return [500, "text/plain", "failed"]
 
     def gethost(self):
         try:
-            response = requests.get('https://www.pornhub.com', headers=self.headers, proxies=self.proxies,
-                                    allow_redirects=False)
-            return response.headers['Location'][:-1]
+            return requests.get('https://www.pornhub.com', headers=self.headers, proxies=self.proxies, allow_redirects=False).headers['Location'][:-1]
         except:
             return "https://www.pornhub.com"
 
     def e64(self, text):
-        try:
-            return b64encode(text.encode('utf-8')).decode('utf-8')
-        except:
-            return ""
+        try: return b64encode(text.encode('utf-8')).decode('utf-8')
+        except: return ""
 
     def d64(self, encoded_text):
-        try:
-            return b64decode(encoded_text.encode('utf-8')).decode('utf-8')
-        except:
-            return ""
+        try: return b64decode(encoded_text.encode('utf-8')).decode('utf-8')
+        except: return ""
 
-    # ---------------------------------------------------------
-    # 核心列表解析 (升级版)
-    # ---------------------------------------------------------
     def getlist(self, data):
         vlist = []
-        if data is None:
-            return vlist
-        
+        if data is None: return vlist
         for i in data.items():
-            # 1. 获取基础信息
-            # 因为传入的是 LI，链接和图片都在 .phimage 下
             href = i('.phimage a').attr('href')
-            if not href: continue # 忽略无效项
-
-            # 标题优先取 title 属性
-            title = i('.phimage img').attr('alt') or i('.title a').text() or i('a').attr('title')
+            if not href: continue
             
-            # 图片优先取 data-src (懒加载)，其次 src
+            title = i('.phimage img').attr('alt') or i('.title a').text() or i('a').attr('title')
             img = i('.phimage img').attr('data-src') or i('.phimage img').attr('src') or i('img').attr('src')
-
-            # 2. 获取时长和点击量
-            # 时长通常在 .duration
+            
+            views = self.format_views(i('.views var').text() or i('.views').text())
             duration = i('.duration').text()
             
-            # 点击量通常在 .views var，或者 .views (不同页面结构略有不同)
-            raw_views = i('.views var').text() or i('.views').text()
-            
-            # 3. 格式化
-            view_str = self.format_views(raw_views)
-            
-            # 组合显示文本： 👁 102万 · ⏱ 10:24
-            # 如果播放器支持换行，这里用了 \n 做尝试，如果不支持则显示在一行
-            remarks_parts = []
-            if view_str:
-                remarks_parts.append(f"👁 {view_str}")
-            if duration:
-                remarks_parts.append(f"⏱ {duration}")
-            
-            # 使用中间点连接，美观且紧凑
-            remarks = " · ".join(remarks_parts)
+            rem = []
+            if views: rem.append(f"👁 {views}")
+            if duration: rem.append(f"⏱ {duration}")
 
             vlist.append({
                 'vod_id': href,
                 'vod_name': title,
                 'vod_pic': self.proxy(img),
-                'vod_remarks': remarks,
+                'vod_remarks': " · ".join(rem),
                 'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
     def getpq(self, path):
         try:
-            response = self.session.get(f'{self.host}{path}').text
-            return pq(response.encode('utf-8'))
+            return pq(self.session.get(f'{self.host}{path}').text.encode('utf-8'))
         except:
             return None
 
     def proxy(self, data, type='img'):
-        if data and len(self.proxies):
-            return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
-        else:
-            return data
+        return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}" if data and len(self.proxies) else data
