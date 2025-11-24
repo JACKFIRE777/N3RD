@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 (Restored: Views+Duration, Added: Search Category)
+# by @嗷呜 (UI optimized: Big Blue Search Card)
 import json
 import re
 import sys
@@ -14,7 +14,6 @@ from base.spider import Spider
 
 # ---------------------------
 # 用户可维护：一级关键字列表 & 映射
-# 这些词会显示在【站内搜索】分类里，方便快速点击
 # ---------------------------
 keyword_list = ["中国", "日本","韩国","4K","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
@@ -74,7 +73,6 @@ class Spider(Spider):
     def destroy(self):
         pass
 
-    # 工具函数：格式化播放量
     def format_views(self, raw_views):
         if not raw_views: return ""
         clean_str = raw_views.replace(',', '').replace(' ', '').upper()
@@ -94,17 +92,16 @@ class Spider(Spider):
     def homeContent(self, filter):
         result = {}
         
-        # 手动分类
+        # 将"站内搜索"移到比较显眼的位置
         cateManual = {
             "视频": "/video",
             "片单": "/playlists",
             "频道": "/channels",
             "分类": "/categories",
             "明星": "/pornstars",
-            "站内搜索": "manual_search_page"  # 🔥 新增：站内搜索分类
+            "站内搜索": "manual_search_page"
         }
 
-        # 筛选器配置
         video_filters = [{"key": "o", "name": "排序", "value": [
             {"n": "最新精选", "v": ""}, {"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"},
             {"n": "最热门", "v": "ht"}, {"n": "最长视频", "v": "lg"}, {"n": "最新发布", "v": "cm"}
@@ -125,22 +122,13 @@ class Spider(Spider):
         classes = []
         filters = {}
 
-        # 添加常规分类
         for k in cateManual:
             classes.append({'type_name': k, 'type_id': cateManual[k]})
             if k == '视频': filters[cateManual[k]] = video_filters
             elif k == '片单': filters[cateManual[k]] = playlist_filters
             elif k == '频道': filters[cateManual[k]] = channel_filters
             elif k == '明星': filters[cateManual[k]] = star_filters
-            elif k == '站内搜索': 
-                # 为站内搜索页添加一个简单的视频排序筛选（因为点进去是关键词，再点进去是视频列表）
-                filters[cateManual[k]] = video_filters
-
-        # 自动加入 keyword_list 为一级分类（如果你还想保留顶部的一级入口的话，如果不想要可以注释掉下面这段）
-        for kw in keyword_list:
-            tid = f"keyword__{kw}"
-            classes.append({'type_name': kw, 'type_id': tid})
-            filters[tid] = video_filters
+            elif k == '站内搜索': filters[cateManual[k]] = video_filters
 
         result['class'] = classes
         result['filters'] = filters
@@ -154,40 +142,37 @@ class Spider(Spider):
         result = {'page': pg, 'pagecount': 9999, 'limit': 90, 'total': 999999}
         vdata = []
 
-        # ---------------- 站内搜索 (显示关键词列表) ----------------
+        # ---------------- 站内搜索 (UI高仿版) ----------------
         if tid == 'manual_search_page':
-            # 这是一个特殊的分类，它不抓取网站，而是展示 keyword_list
-            # 只有第一页
-            if pg != '1':
-                return {'list': []}
-            
+            if pg != '1': return {'list': []}
             result['pagecount'] = 1
             
-            # 提示项
+            # 1. 顶部大卡片（高仿截图UI）
+            # 注意：点击这个并不能弹出输入框（Python限制），所以文字做了引导
             vdata.append({
-                'vod_id': 'tip_search',
-                'vod_name': '👉 点顶部🔍图标可输入任意文字',
-                'vod_pic': 'https://ci.phncdn.com/www-static/images/pornhub_logo_straight.png',
+                'vod_id': 'tip_search_dummy',
+                'vod_name': '🔍 点击此处无法输入 (请使用顶部放大镜)', 
+                'vod_pic': 'https://dummyimage.com/600x400/4c5fd7/ffffff&text=%E7%AB%99%E5%86%85%E6%90%9C%E7%B4%A2', # 纯色蓝色背景+文字
                 'vod_tag': 'folder',
-                'vod_remarks': '使用说明',
-                'style': {"type": "rect", "ratio": 1.778}
+                'vod_remarks': '请使用APP顶部🔍图标',
+                'style': {"type": "rect", "ratio": 1.5} # 1.5比例类似截图的大卡片
             })
 
-            # 遍历关键词生成“文件夹”
+            # 2. 热门标签（作为文件夹展示）
             for kw in keyword_list:
                 vdata.append({
-                    'vod_id': f"keyword__{kw}", # 点击后复用 keyword__ 逻辑
+                    'vod_id': f"keyword__{kw}",
                     'vod_name': kw,
-                    'vod_pic': 'https://ci.phncdn.com/www-static/images/pornhub_logo_straight.png', # 使用默认Logo
+                    'vod_pic': 'https://ci.phncdn.com/www-static/images/pornhub_logo_straight.png',
                     'vod_tag': 'folder',
-                    'vod_remarks': '热门标签',
+                    'vod_remarks': '快速搜索',
                     'style': {"type": "rect", "ratio": 1.778}
                 })
             
             result['list'] = vdata
             return result
 
-        # ---------------- 关键字分类处理 ----------------
+        # ---------------- 关键字处理 ----------------
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
             real_kw = keyword_map.get(kw, kw)
@@ -203,7 +188,6 @@ class Spider(Spider):
                     if '=' in p: k, v = p.split('=', 1); params[k] = v
             params['page'] = pg
             if extend and 'o' in extend: params['o'] = extend['o']
-            
             q_str = '&'.join([f"{k}={v}" for k, v in params.items() if v != ''])
             data = self.getpq(f"{base_tid.split('?')[0]}?{q_str}")
             result['list'] = self.getlist(data('#videoCategory .pcVideoListItem'))
@@ -310,15 +294,21 @@ class Spider(Spider):
         return result
 
     def detailContent(self, ids):
-        if ids[0] == 'tip_search':
+        # 搜索页的提示项不需要解析
+        if ids[0] == 'tip_search_dummy':
             return {'list': []}
 
         url = f"{self.host}{ids[0]}"
         data = self.getpq(ids[0])
         vn = data('meta[property="og:title"]').attr('content')
         dtext = data('.userInfo .usernameWrap a')
-        pdtitle = '[a=cr:' + json.dumps(
-            {'id': 'director_click_' + dtext.attr('href'), 'name': dtext.text()}) + '/]' + dtext.text() + '[/a]'
+        director = dtext.text() if dtext else "Unknown"
+        
+        if dtext:
+            pdtitle = '[a=cr:' + json.dumps(
+                {'id': 'director_click_' + dtext.attr('href'), 'name': director}) + '/]' + director + '[/a]'
+        else:
+            pdtitle = director
 
         vod = {
             'vod_name': vn,
@@ -329,7 +319,7 @@ class Spider(Spider):
         }
 
         js_content = data("#player script").eq(0).text()
-        plist = [f"{vn}${self.e64(f'{1}@@@@{url}')}"]
+        play_urls = []
 
         try:
             pattern = r'"mediaDefinitions":\s*(\[.*?\]),\s*"isVertical"'
@@ -337,17 +327,33 @@ class Spider(Spider):
             if match:
                 json_str = match.group(1)
                 udata = json.loads(json_str)
-                plist = []
+                formats = []
                 for media in udata:
                     videoUrl = media.get('videoUrl') or media.get('videoUrlNoWatermark') or media.get('url')
                     if not videoUrl: continue
-                    height = media.get('height') or media.get('quality') or '0'
-                    # 简单的排序逻辑，避免复杂的 4K 检查导致问题
-                    plist.append(f"{height}${self.e64(f'{0}@@@@{videoUrl}')}")
+                    height = str(media.get('height') or media.get('quality') or '0')
+                    fmt_type = media.get('format', '')
+                    weight = 0
+                    if fmt_type == 'hls' or '.m3u8' in videoUrl:
+                        height = "自动(HLS)"
+                        weight = 100
+                    elif height == '1080': weight = 90
+                    elif height == '720': weight = 80
+                    elif height == '480': weight = 70
+                    elif height == '240': weight = 60
+                    elif height == '2160' or height == '4k': weight = 10
+                    
+                    formats.append({'name': height, 'url': videoUrl, 'weight': weight})
+                formats.sort(key=lambda x: x['weight'], reverse=True)
+                for f in formats:
+                    play_urls.append(f"{f['name']}${self.e64(f'{0}@@@@{f['url']}')}")
         except Exception as e:
-            print(f"提取mediaDefinitions失败: {str(e)}")
+            print(f"提取失败: {str(e)}")
 
-        vod['vod_play_url'] = '#'.join(plist)
+        if not play_urls:
+            play_urls = [f"{vn}${self.e64(f'{1}@@@@{url}')}"]
+
+        vod['vod_play_url'] = '#'.join(play_urls)
         return {'list': [vod]}
 
     def searchContent(self, key, quick, pg="1", sort=None):
@@ -359,50 +365,41 @@ class Spider(Spider):
 
     def playerContent(self, flag, id, vipFlags):
         ids = self.d64(id).split('@@@@')
-        if '.m3u8' in ids[1]:
-            ids[1] = self.proxy(ids[1], 'm3u8')
-        return {'parse': int(ids[0]), 'url': ids[1], 'header': self.headers}
+        url = ids[1]
+        if '.m3u8' in url: url = self.proxy(url, 'm3u8')
+        return {'parse': int(ids[0]), 'url': url, 'header': self.headers}
 
     def localProxy(self, param):
         url = self.d64(param.get('url'))
-        if param.get('type') == 'm3u8':
-            return self.m3Proxy(url)
-        else:
-            return self.tsProxy(url)
+        return self.m3Proxy(url) if param.get('type') == 'm3u8' else self.tsProxy(url)
 
     def m3Proxy(self, url):
-        ydata = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=False)
-        data = ydata.content.decode('utf-8')
-        if ydata.headers.get('Location'):
-            url = ydata.headers['Location']
-            data = requests.get(url, headers=self.headers, proxies=self.proxies).content.decode('utf-8')
-
-        lines = data.strip().split('\n')
-        last_r = url[:url.rfind('/')]
-        parsed_url = urlparse(url)
-        durl = parsed_url.scheme + "://" + parsed_url.netloc
-
-        for index, string in enumerate(lines):
-            if '#EXT' not in string:
-                if 'http' not in string:
-                    domain = last_r if string.count('/') < 2 else durl
-                    string = domain + ('' if string.startswith('/') else '/') + string
-                lines[index] = self.proxy(string, string.split('.')[-1].split('?')[0])
-
-        data = '\n'.join(lines)
-        return [200, "application/vnd.apple.mpegur", data]
+        try:
+            ydata = requests.get(url, headers=self.headers, proxies=self.proxies, allow_redirects=True)
+            data = ydata.text
+            url = ydata.url 
+            lines = data.strip().split('\n')
+            last_r = url[:url.rfind('/')]
+            parsed_url = urlparse(url)
+            durl = parsed_url.scheme + "://" + parsed_url.netloc
+            for index, string in enumerate(lines):
+                if '#EXT' not in string and string.strip():
+                    if not string.startswith('http'):
+                        domain = last_r if string.count('/') < 2 else durl
+                        string = domain + ('' if string.startswith('/') else '/') + string
+                    lines[index] = self.proxy(string, 'ts')
+            return [200, "application/vnd.apple.mpegur", '\n'.join(lines)]
+        except: return [500, "text/plain", "failed"]
 
     def tsProxy(self, url):
-        data = requests.get(url, headers=self.headers, proxies=self.proxies, stream=True)
-        return [200, data.headers['Content-Type'], data.content]
+        try:
+            data = requests.get(url, headers=self.headers, proxies=self.proxies, stream=True)
+            return [200, data.headers.get('Content-Type', 'video/MP2T'), data.content]
+        except: return [500, "text/plain", "failed"]
 
     def gethost(self):
-        try:
-            response = requests.get('https://www.pornhub.com', headers=self.headers, proxies=self.proxies,
-                                    allow_redirects=False)
-            return response.headers['Location'][:-1]
-        except:
-            return "https://www.pornhub.com"
+        try: return requests.get('https://www.pornhub.com', headers=self.headers, proxies=self.proxies, allow_redirects=False).headers['Location'][:-1]
+        except: return "https://www.pornhub.com"
 
     def e64(self, text):
         try: return b64encode(text.encode('utf-8')).decode('utf-8')
@@ -418,17 +415,13 @@ class Spider(Spider):
         for i in data.items():
             href = i('.phimage a').attr('href')
             if not href: continue
-            
             title = i('.phimage img').attr('alt') or i('.title a').text() or i('a').attr('title')
             img = i('.phimage img').attr('data-src') or i('.phimage img').attr('src') or i('img').attr('src')
-            
             views = self.format_views(i('.views var').text() or i('.views').text())
             duration = i('.duration').text()
-            
             rem = []
             if views: rem.append(f"👁 {views}")
             if duration: rem.append(f"⏱ {duration}")
-
             vlist.append({
                 'vod_id': href,
                 'vod_name': title,
@@ -439,14 +432,8 @@ class Spider(Spider):
         return vlist
 
     def getpq(self, path):
-        try:
-            response = self.session.get(f'{self.host}{path}').text
-            return pq(response.encode('utf-8'))
-        except:
-            return None
+        try: return pq(self.session.get(f'{self.host}{path}').text.encode('utf-8'))
+        except: return None
 
     def proxy(self, data, type='img'):
-        if data and len(self.proxies):
-            return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}"
-        else:
-            return data
+        return f"{self.getProxyUrl()}&url={self.e64(data)}&type={type}" if data and len(self.proxies) else data
