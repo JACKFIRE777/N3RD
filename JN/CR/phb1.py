@@ -89,10 +89,11 @@ class Spider(Spider):
         pass
 
 # 首页分类
-    def homeContent(self, filter):
+
+            def homeContent(self, filter):
         result = {}
 
-        # 手动定义一级分类（保留原有静态分类）
+        # 手动定义一级分类
         cateManual = {
             "视频": "/video",
             "片单": "/playlists",
@@ -100,34 +101,27 @@ class Spider(Spider):
             "分类": "/categories",
             "明星": "/pornstars"
         }
-
-                
-        # 🔥 修改筛选配置：
-        # 建议删除 'ext' 字段，改回默认的按钮模式，
-        # 这样选项会横向排列，不会因为下拉框位置太低而被遮挡。
-        video_filters = {
-            'o': [
-                {'key': '', 'name': '最新精选'},
-                {'key': 'mv', 'name': '最多次观看'},
-                {'key': 'tr', 'name': '最高分'},
-                {'key': 'ht', 'name': '最热门'},
-                {'key': 'lg', 'name': '最长'},
-                {'key': 'cm', 'name': '最新'}
-            ]
-            # 注释掉下面这段 'ext' 内容即可解决显示不全的问题
-            # ,
-            # 'ext': {
-            #     'o': {
-            #         'name': '排序', 
-            #         'type': 'select', 
-            #     }
-            # }
-        }
+        
+        # 🔥 重点修改：改为标准 List 格式
+        # 这种格式会强制 UI 渲染出一整行，包含左侧标题和右侧按钮，
+        # 彻底解决显示不全或挤在角落的问题。
+        video_filters = [
+            {
+                "key": "o",  # 对应后端接收的参数名
+                "name": "排序方式", # 显示的标题，占据左侧空间
+                "value": [
+                    {"n": "最新精选", "v": ""},
+                    {"n": "最多次观看", "v": "mv"},
+                    {"n": "最高评分", "v": "tr"},
+                    {"n": "最热门", "v": "ht"},
+                    {"n": "最长视频", "v": "lg"},
+                    {"n": "最新发布", "v": "cm"}
+                ]
+            }
+        ]
 
         classes = []
         filters = {}
-        
-
 
         # 生成原有结构
         for k in cateManual:
@@ -138,6 +132,8 @@ class Spider(Spider):
             # 仅为 '视频' 添加筛选器
             if k == '视频':
                 filters[cateManual[k]] = video_filters
+                
+
 
         # 🔥 自动加入 keyword_list 为一级分类（易维护）
         # type_id 使用 keyword__{kw} 形式以便在 categoryContent 区分
