@@ -19,7 +19,13 @@
   { "key": "py_色播聚合", "name": "py_色播聚合(T3)", "type": 3, "searchable": 1, "quickSearch": 1, "filterable": 1, "api": "./py_色播聚合.py", "order_num": 5, "ext": "", "style": { "type": "rect", "ratio": 1.778 } },
   { "key": "XMVideo", "name": "熊猫视频", "type": 3, "api": "csp_XMVideo", "searchable": 1, "filterable": 1, "jar": "https://raw.githubusercontent.com/guot55/yg/main/jar/182.jar", "style": { "type": "rect", "ratio": 1.778 } },
   { "key": "Zuise", "name": "最色", "type": 3, "api": "csp_Zuise", "quickSearch": 1, "changeable": 1, "filterable": 1, "timeout": 60, "ext": "proxy", "style": { "type": "rect", "ratio": 1.778 } },
-  { "key": "MissAV", "name": "MissAV", "type": 3, "api": "csp_Miss", "ext": "noproxy", "searchable": 1, "recordable": 0, "timeout": 60, "style": { "type": "rect", "ratio": 1.778 } },
+ //{ "key": "MissAV", "name": "MissAV", "type": 3, "api": "csp_Miss", "ext": "noproxy", "searchable": 1, "recordable": 0, "timeout": 60, "style": { "type": "rect", "ratio": 1.778 } },
+			{
+			"key": "py_Miss",
+			"name": "🔞MissAV",
+			"type": 4,
+			"api": "https://py.doube.eu.org/spider?site=Miss"
+		},  
   { "key": "csp_JavBus", "name": "JavBus🧲", "type": 3, "api": "csp_JavBus", "searchable": 1, "quickSearch": 1, "filterable": 1, "changeable": 0, "style": { "type": "rect", "ratio": 1.778 } },
   { "key": "csp_JavDb", "name": "JavDb🧲", "type": 3, "api": "csp_JavDb", "searchable": 1, "quickSearch": 1, "filterable": 1, "changeable": 0, "style": { "type": "rect", "ratio": 1.778 } },
   { "key": "csp_Netflav", "name": "Netflav🧲", "type": 3, "api": "csp_Netflav", "jar": "./netflav.jar", "searchable": 1, "quickSearch": 1, "changeable": 1, "filterable": 0, "timeout": 60, "style": { "type": "rect", "ratio": 1.778 } },
