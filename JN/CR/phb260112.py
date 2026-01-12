@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 (Restored: Views+Duration, Added: Search Category)
+# by @嗷呜 (Restored: Views+Duration, Added: Search Category, Enhanced: Filters)
 import json
 import re
 import sys
@@ -18,15 +18,8 @@ from base.spider import Spider
 keyword_list = ["中国", "日本","韩国","4K","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
 keyword_map = {
-    "中国": "中国",
-    "日本": "日本",
-    "韩国": "韩国",
-    "BLACKED": "BLACKED",
-    "素人": "素人",
-    "合辑": "Compilation",
-    "音乐": "porn music video", 
-    "奶头乐": "male nipple play", 
-    "大屁股": "big ass"
+    "中国": "中国", "日本": "日本", "韩国": "韩国", "BLACKED": "BLACKED", "素人": "素人",
+    "合辑": "Compilation", "音乐": "porn music video", "奶头乐": "male nipple play", "大屁股": "big ass"
 }
 # ---------------------------
 
@@ -40,16 +33,10 @@ class Spider(Spider):
 
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5410.0 Safari/537.36',
-            'pragma': 'no-cache',
-            'cache-control': 'no-cache',
-            'sec-ch-ua-platform': '"Windows"',
+            'pragma': 'no-cache', 'cache-control': 'no-cache', 'sec-ch-ua-platform': '"Windows"',
             'sec-ch-ua': '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
-            'dnt': '1',
-            'sec-ch-ua-mobile': '?0',
-            'sec-fetch-site': 'cross-site',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-dest': 'empty',
-            'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'dnt': '1', 'sec-ch-ua-mobile': '?0', 'sec-fetch-site': 'cross-site',
+            'sec-fetch-mode': 'cors', 'sec-fetch-dest': 'empty', 'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
             'priority': 'u=1, i',
         }
 
@@ -85,7 +72,6 @@ class Spider(Spider):
         if unit == 'B': num = value * 1000000000
         elif unit == 'M': num = value * 1000000
         elif unit == 'K': num = value * 1000
-        
         if num >= 100000000: return f"{num / 100000000:.2f}亿"
         elif num >= 10000: return f"{num / 10000:.2f}万"
         else: return f"{int(num)}"
@@ -101,23 +87,31 @@ class Spider(Spider):
             "站内搜索": "manual_search_page"
         }
 
-        # 通用视频筛选器（也适用于明星内部视频排序）
-        video_filters = [{"key": "o", "name": "排序", "value": [
-            {"n": "最新精选", "v": ""}, {"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"},
-            {"n": "最热门", "v": "ht"}, {"n": "最长视频", "v": "lg"}, {"n": "最新发布", "v": "cm"}
-        ]}]
+        # 核心：根据源码构建完整的筛选器
+        video_filters = [
+            {"key": "o", "name": "排序", "value": [
+                {"n": "最新精选", "v": ""}, {"n": "最多次观看", "v": "mv"}, {"n": "最高分", "v": "tr"},
+                {"n": "最热门", "v": "ht"}, {"n": "最长", "v": "lg"}, {"n": "最新", "v": "cm"}
+            ]},
+            {"key": "p", "name": "出品", "value": [
+                {"n": "全部", "v": ""}, {"n": "专业", "v": "professional"}, {"n": "自制", "v": "homemade"}
+            ]},
+            {"key": "t", "name": "时间区段", "value": [
+                {"n": "迄今为止", "v": "a"}, {"n": "每日", "v": "t"}, {"n": "每周", "v": "w"},
+                {"n": "每月", "v": "m"}, {"n": "每年", "v": "y"}
+            ]}
+        ]
         
         classes = []
         filters = {}
 
         for k in cateManual:
             classes.append({'type_name': k, 'type_id': cateManual[k]})
-            # 为明星、频道、搜索等都绑定视频筛选器，确保进入下一级后筛选依然可用
+            # 分类本身是目录，不需要在这里加筛选；但点击目录进入后的 TID 会带上这些筛选
             if k in ['视频', '站内搜索', '频道', '明星']: 
                 filters[cateManual[k]] = video_filters
-            elif k == '片单': 
-                filters[cateManual[k]] = [{"key": "o", "name": "排序", "value": [{"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"}]}]
 
+        # 关键词分类也支持完整筛选
         for kw in keyword_list:
             tid = f"keyword__{kw}"
             classes.append({'type_name': kw, 'type_id': tid})
@@ -134,7 +128,11 @@ class Spider(Spider):
     def categoryContent(self, tid, pg, filter, extend):
         result = {'page': pg, 'pagecount': 9999, 'limit': 90, 'total': 999999}
         vdata = []
+        
+        # 获取所有筛选参数
         sort = extend.get('o') if extend else None
+        prod = extend.get('p') if extend else None
+        time = extend.get('t') if extend else None
 
         if tid == 'manual_search_page':
             if pg != '1': return {'list': []}
@@ -155,92 +153,28 @@ class Spider(Spider):
 
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
-            return self.searchContent(kw, quick=False, pg=pg, sort=sort)
+            return self.searchContent(kw, quick=False, pg=pg, sort=sort, prod=prod, time=time)
 
-        # 视频分类特殊逻辑 (首页 vs 列表页)
+        # 视频分类逻辑 (包含 /video 和 从 /categories 点进去的类目)
         if tid == '/video' or '_this_video' in tid:
-            if pg == '1' and not sort:
+            # 第一页且无筛选，直接抓首页内容
+            if pg == '1' and not sort and not prod and not time:
                 data = self.getpq('/')
                 result['list'] = self.getlist(data('.pcVideoListItem'))
             else:
-                base_tid = tid.split('_this_video')[0].split('?')[0]
-                url = f"{base_tid}?page={pg}"
-                if sort: url += f"&o={sort}"
+                base_tid = tid.split('_this_video')[0]
+                # 构建多参数 URL
+                params = [f"page={pg}"]
+                if sort: params.append(f"o={sort}")
+                if prod: params.append(f"p={prod}")
+                if time: params.append(f"t={time}")
+                
+                connector = "&" if "?" in base_tid else "?"
+                url = f"{base_tid}{connector}{'&'.join(params)}"
                 data = self.getpq(url)
-                result['list'] = self.getlist(data('#videoCategory .pcVideoListItem'))
-            return result
-
-        # 明星列表 (注意：这里是选明星的页面)
-        if tid == '/pornstars':
-            star_sort = sort if sort else 'ms' # 明星列表默认按最多订阅
-            data = self.getpq(f'{tid}?o={star_sort}&page={pg}')
-            vhtml = data('#popularPornstars .performerCard .wrap')
-            for i in vhtml.items():
-                views = self.format_views(i('.performerVideosViewsCount span').eq(-1).text())
-                vdata.append({
-                    'vod_id': 'pornstars_click_' + i('a').attr('href'),
-                    'vod_name': i('.performerCardName').text(),
-                    'vod_pic': self.proxy(i('a img').attr('src')),
-                    'vod_tag': 'folder', 'vod_remarks': f"播放量：{views}",
-                    'style': {"type": "rect", "ratio": 1}
-                })
-            result['list'] = vdata
-            return result
-
-        # 频道列表
-        if tid == '/channels':
-            chan_sort = sort if sort else 'rk'
-            data = self.getpq(f'{tid}?o={chan_sort}&page={pg}')
-            vhtml = data('#filterChannelsSection li .description')
-            for i in vhtml.items():
-                views = self.format_views(i('.descriptionContainer ul li').eq(-1).text())
-                vdata.append({
-                    'vod_id': 'director_click_' + i('.avatar a').attr('href'),
-                    'vod_name': i('.avatar img').attr('alt'),
-                    'vod_pic': self.proxy(i('.avatar img').attr('src')),
-                    'vod_tag': 'folder', 'vod_remarks': f"播放量：{views}",
-                    'style': {"type": "rect", "ratio": 1}
-                })
-            result['list'] = vdata
-            return result
-
-        # --- 核心修复：明星/频道 内部视频点击后的排序 ---
-        
-        if 'pornstars_click' in tid:
-            base_url = tid.split('click_')[-1]
-            # 拼接：个人主页/videos?page=1&o=mv
-            url = f'{base_url}/videos?page={pg}'
-            if sort: url += f"&o={sort}"
-            data = self.getpq(url)
-            # 明星页面的视频容器通常是这个
-            vlist = data('#mostRecentVideosSection .pcVideoListItem') or data('.pcVideoListItem')
-            result['list'] = self.getlist(vlist)
-            return result
-
-        if 'director_click' in tid:
-            base_url = tid.split('click_')[-1]
-            url = f'{base_url}/videos?page={pg}'
-            if sort: url += f"&o={sort}"
-            data = self.getpq(url)
-            vlist = data('#showAllChanelVideos .pcVideoListItem') or data('.pcVideoListItem')
-            result['list'] = self.getlist(vlist)
-            return result
-
-        # 片单/分类等其他逻辑保持
-        if tid == '/playlists':
-            url = f'{tid}?page={pg}'
-            if sort: url += f"&o={sort}"
-            data = self.getpq(url)
-            vhtml = data('#playListSection li')
-            for i in vhtml.items():
-                pic = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
-                vdata.append({
-                    'vod_id': 'playlists_click_' + i('.thumbnail-info-wrapper .display-block a').attr('href'),
-                    'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
-                    'vod_pic': self.proxy(pic), 'vod_tag': 'folder',
-                    'vod_remarks': i('.playlist-videos .number').text(), 'style': {"type": "rect", "ratio": 1.778}
-                })
-            result['list'] = vdata
+                # 分类页面的容器 ID 可能是 #videoCategory 或空
+                vlist = data('#videoCategory .pcVideoListItem') or data('.pcVideoListItem')
+                result['list'] = self.getlist(vlist)
             return result
 
         if tid == '/categories' and pg == '1':
@@ -256,16 +190,48 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        if 'playlists_click' in tid:
-            tid = tid.split('click_')[-1]
-            if pg == '1':
-                hdata = self.getpq(tid)
-                self.token = hdata('#searchInput').attr('data-token')
-                result['list'] = self.getlist(hdata('#videoPlaylist .pcVideoListItem'))
-            else:
-                tid = tid.split('playlist/')[-1]
-                data = self.getpq(f'/playlist/viewChunked?id={tid}&token={self.token}&page={pg}')
-                result['list'] = self.getlist(data('.pcVideoListItem'))
+        # 明星列表/频道列表/内部逻辑 (沿用上一版修复后的逻辑)
+        if tid == '/pornstars':
+            star_sort = sort if sort else 'ms'
+            data = self.getpq(f'{tid}?o={star_sort}&page={pg}')
+            vhtml = data('#popularPornstars .performerCard .wrap')
+            for i in vhtml.items():
+                views = self.format_views(i('.performerVideosViewsCount span').eq(-1).text())
+                vdata.append({
+                    'vod_id': 'pornstars_click_' + i('a').attr('href'),
+                    'vod_name': i('.performerCardName').text(),
+                    'vod_pic': self.proxy(i('a img').attr('src')),
+                    'vod_tag': 'folder', 'vod_remarks': f"播放量：{views}",
+                    'style': {"type": "rect", "ratio": 1}
+                })
+            result['list'] = vdata
+            return result
+
+        if 'pornstars_click' in tid or 'director_click' in tid:
+            base_url = tid.split('click_')[-1]
+            url = f'{base_url}/videos?page={pg}'
+            if sort: url += f"&o={sort}"
+            if prod: url += f"&p={prod}"
+            if time: url += f"&t={time}"
+            data = self.getpq(url)
+            vlist = data('.pcVideoListItem')
+            result['list'] = self.getlist(vlist)
+            return result
+
+        if tid == '/playlists':
+            url = f'{tid}?page={pg}'
+            if sort: url += f"&o={sort}"
+            data = self.getpq(url)
+            vhtml = data('#playListSection li')
+            for i in vhtml.items():
+                pic = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
+                vdata.append({
+                    'vod_id': 'playlists_click_' + i('.thumbnail-info-wrapper .display-block a').attr('href'),
+                    'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
+                    'vod_pic': self.proxy(pic), 'vod_tag': 'folder',
+                    'vod_remarks': i('.playlist-videos .number').text(), 'style': {"type": "rect", "ratio": 1.778}
+                })
+            result['list'] = vdata
             return result
 
         result['list'] = vdata
@@ -300,10 +266,12 @@ class Spider(Spider):
         vod['vod_play_url'] = '#'.join(plist)
         return {'list': [vod]}
 
-    def searchContent(self, key, quick, pg="1", sort=None):
+    def searchContent(self, key, quick, pg="1", sort=None, prod=None, time=None):
         real_key = keyword_map.get(key, key)
         url = f'/video/search?search={real_key}&page={pg}'
         if sort: url += f"&o={sort}"
+        if prod: url += f"&p={prod}"
+        if time: url += f"&t={time}"
         data = self.getpq(url)
         return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem'))}
 
