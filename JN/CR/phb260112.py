@@ -15,7 +15,7 @@ from base.spider import Spider
 # ---------------------------
 # 用户可维护：一级关键字列表 & 映射
 # ---------------------------
-keyword_list = ["中国", "日本","韩国","4K","中文字幕","BLACKED", "素人", "音乐", "合辑", "pmv", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
+keyword_list = ["中国", "日本","韩国","4K","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
 keyword_map = {
     "中国": "中国",
@@ -38,7 +38,6 @@ class Spider(Spider):
         except:
             self.proxies = {}
 
-        # 保持用户提供的 Header 不变
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.5410.0 Safari/537.36',
             'pragma': 'no-cache',
@@ -96,7 +95,6 @@ class Spider(Spider):
     def homeContent(self, filter):
         result = {}
         
-        # 手动分类 (保持 /video 不变)
         cateManual = {
             "视频": "/video",
             "片单": "/playlists",
@@ -106,7 +104,7 @@ class Spider(Spider):
             "站内搜索": "manual_search_page"
         }
 
-        # 筛选器配置
+        # 筛选器：最新精选 v 为空
         video_filters = [{"key": "o", "name": "排序", "value": [
             {"n": "最新精选", "v": ""}, {"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"},
             {"n": "最热门", "v": "ht"}, {"n": "最长视频", "v": "lg"}, {"n": "最新发布", "v": "cm"}
@@ -152,7 +150,7 @@ class Spider(Spider):
         result = {'page': pg, 'pagecount': 9999, 'limit': 90, 'total': 999999}
         vdata = []
 
-        # 站内搜索
+        # 1. 站内搜索首页逻辑（优先处理）
         if tid == 'manual_search_page':
             if pg != '1': return {'list': []}
             result['pagecount'] = 1
@@ -176,27 +174,27 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 关键字分类
+        # 2. 关键字分类
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
             sort_opt = extend.get('o') if extend else None
             return self.searchContent(kw, quick=False, pg=pg, sort=sort_opt)
 
-        # 视频分类 (修复排序参数拼合逻辑)
+        # 3. 视频分类
         if tid == '/video' or '_this_video' in tid:
-            base_tid = tid.split('_this_video')[0]
-            clean_path = base_tid.split('?')[0]
-            # 重新构造参数，确保 o 参数位置
-            sort = extend.get('o', '') if extend else ''
-            url = f"{clean_path}?o={sort}&page={pg}"
+            base_tid = tid.split('_this_video')[0].split('?')[0]
+            sort = extend.get('o') if extend else None
+            url = f"{base_tid}?page={pg}"
+            if sort: url += f"&o={sort}" # 仅在有值时添加排序参数
             data = self.getpq(url)
             result['list'] = self.getlist(data('#videoCategory .pcVideoListItem'))
             return result
 
-        # 片单
+        # 4. 片单
         if tid == '/playlists':
-            sort = extend.get('o', '') if extend else ''
-            url = f'{tid}?o={sort}&page={pg}'
+            sort = extend.get('o') if extend else None
+            url = f'{tid}?page={pg}'
+            if sort: url += f"&o={sort}"
             data = self.getpq(url)
             vhtml = data('#playListSection li')
             for i in vhtml.items():
@@ -212,10 +210,12 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 频道
+        # 5. 频道
         if tid == '/channels':
             sort = extend.get('o', 'rk') if extend else 'rk'
-            data = self.getpq(f'{tid}?o={sort}&page={pg}')
+            url = f'{tid}?page={pg}'
+            if sort: url += f"&o={sort}"
+            data = self.getpq(url)
             vhtml = data('#filterChannelsSection li .description')
             for i in vhtml.items():
                 views = self.format_views(i('.descriptionContainer ul li').eq(-1).text())
@@ -230,7 +230,7 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 分类
+        # 6. 分类
         if tid == '/categories' and pg == '1':
             result['pagecount'] = 1
             data = self.getpq(f'{tid}')
@@ -246,10 +246,12 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 明星
+        # 7. 明星
         if tid == '/pornstars':
             sort = extend.get('o', 'ms') if extend else 'ms'
-            data = self.getpq(f'{tid}?o={sort}&page={pg}')
+            url = f'{tid}?page={pg}'
+            if sort: url += f"&o={sort}"
+            data = self.getpq(url)
             vhtml = data('#popularPornstars .performerCard .wrap')
             for i in vhtml.items():
                 views = self.format_views(i('.performerVideosViewsCount span').eq(-1).text())
@@ -265,7 +267,7 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 内部点击逻辑保持不变...
+        # 内部点击
         if 'playlists_click' in tid:
             tid = tid.split('click_')[-1]
             if pg == '1':
@@ -326,9 +328,9 @@ class Spider(Spider):
 
     def searchContent(self, key, quick, pg="1", sort=None):
         real_key = keyword_map.get(key, key)
-        if not sort: sort = ""
-        # 核心修复：确保 o 参数紧随其后且 page 在最后
-        url = f'/video/search?search={real_key}&o={sort}&page={pg}'
+        # 修复搜索：只有在 sort 有值时才拼接 &o=
+        url = f'/video/search?search={real_key}&page={pg}'
+        if sort: url += f"&o={sort}"
         data = self.getpq(url)
         return {'list': self.getlist(data('#videoSearchResult .pcVideoListItem'))}
 
@@ -366,7 +368,7 @@ class Spider(Spider):
         return [200, data.headers['Content-Type'], data.content]
 
     def gethost(self):
-        # 强制指定为 cn 域名
+        # 锁定 CN 域名
         return "https://cn.pornhub.com"
 
     def e64(self, text):
