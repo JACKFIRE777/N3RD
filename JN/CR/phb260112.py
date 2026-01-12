@@ -196,42 +196,23 @@ class Spider(Spider):
                 link = a_tag.attr('href')
                 if not link or 'view_video' in link: continue 
 
+                # 修复封面：尝试抓取多种可能的属性
+                img_obj = i('img')
+                pic = img_obj.attr('data-medium-thumb') or img_obj.attr('data-src') or img_obj.attr('data-thumb_url') or img_obj.attr('src')
+                
+                name = a_tag.text() or a_tag.attr('title') or i('.playlistName').text()
+                remarks = i('.playlist-videos').text().strip() or i('.number').text() or "片单"
 
-# 修复封面：只抓真正的片单大封面（避免拼贴图）
-img = i('img.largeThumb')
-if not img or not img.attr('src'):
-    img = i('img.js-videoThumb')
-
-pic = (
-    img.attr('data-thumb_url')
-    or img.attr('data-mediumthumb')
-    or img.attr('src')
-)
-
-name = (
-    a_tag.text()
-    or a_tag.attr('title')
-    or i('.playlistName').text()
-)
-
-remarks = (
-    i('.playlist-videos').text().strip()
-    or i('.number').text()
-    or "片单"
-)
-
-vdata.append({
-    'vod_id': 'playlists_click_' + link,
-    'vod_name': name.strip() if name else "未命名片单",
-    'vod_pic': self.proxy(pic),
-    'vod_tag': 'folder',
-    'vod_remarks': remarks,
-    'style': {"type": "rect", "ratio": 1.778}
-})
-
-result['list'] = vdata
-return result
-
+                vdata.append({
+                    'vod_id': 'playlists_click_' + link,
+                    'vod_name': name.strip() if name else "未命名片单",
+                    'vod_pic': self.proxy(pic),
+                    'vod_tag': 'folder',
+                    'vod_remarks': remarks,
+                    'style': {"type": "rect", "ratio": 1.778}
+                })
+            result['list'] = vdata
+            return result
 
         # 4. 片单内部视频
         if 'playlists_click' in tid:
