@@ -104,7 +104,6 @@ class Spider(Spider):
             "站内搜索": "manual_search_page"
         }
 
-        # 筛选器：最新精选 v 为空
         video_filters = [{"key": "o", "name": "排序", "value": [
             {"n": "最新精选", "v": ""}, {"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"},
             {"n": "最热门", "v": "ht"}, {"n": "最长视频", "v": "lg"}, {"n": "最新发布", "v": "cm"}
@@ -143,14 +142,14 @@ class Spider(Spider):
         return result
 
     def homeVideoContent(self):
-        data = self.getpq('/recommended')
-        return {'list': self.getlist(data("#recommendedListings .pcVideoListItem"))}
+        # 这里的首页保持推荐或改为首页
+        data = self.getpq('/')
+        return {'list': self.getlist(data(".pcVideoListItem"))}
 
     def categoryContent(self, tid, pg, filter, extend):
         result = {'page': pg, 'pagecount': 9999, 'limit': 90, 'total': 999999}
         vdata = []
 
-        # 1. 站内搜索首页逻辑（优先处理）
         if tid == 'manual_search_page':
             if pg != '1': return {'list': []}
             result['pagecount'] = 1
@@ -174,23 +173,30 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 2. 关键字分类
         if isinstance(tid, str) and tid.startswith('keyword__'):
             kw = tid.replace('keyword__', '')
             sort_opt = extend.get('o') if extend else None
             return self.searchContent(kw, quick=False, pg=pg, sort=sort_opt)
 
-        # 3. 视频分类
+        # ---------------- 视频分类逻辑优化 ----------------
         if tid == '/video' or '_this_video' in tid:
             base_tid = tid.split('_this_video')[0].split('?')[0]
             sort = extend.get('o') if extend else None
-            url = f"{base_tid}?page={pg}"
-            if sort: url += f"&o={sort}" # 仅在有值时添加排序参数
-            data = self.getpq(url)
-            result['list'] = self.getlist(data('#videoCategory .pcVideoListItem'))
+            
+            # 如果是第一页且没有选排序，直接访问首页内容 (https://cn.pornhub.com/)
+            if pg == '1' and not sort:
+                data = self.getpq('/')
+                # 首页内容没有 #videoCategory 这个 ID，所以改用通用的 class 抓取
+                result['list'] = self.getlist(data('.pcVideoListItem'))
+            else:
+                # 否则（有排序或有分页），访问视频列表页
+                url = f"{base_tid}?page={pg}"
+                if sort: url += f"&o={sort}"
+                data = self.getpq(url)
+                result['list'] = self.getlist(data('#videoCategory .pcVideoListItem'))
             return result
+        # ------------------------------------------------
 
-        # 4. 片单
         if tid == '/playlists':
             sort = extend.get('o') if extend else None
             url = f'{tid}?page={pg}'
@@ -210,7 +216,6 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 5. 频道
         if tid == '/channels':
             sort = extend.get('o', 'rk') if extend else 'rk'
             url = f'{tid}?page={pg}'
@@ -230,7 +235,6 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 6. 分类
         if tid == '/categories' and pg == '1':
             result['pagecount'] = 1
             data = self.getpq(f'{tid}')
@@ -246,7 +250,6 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 7. 明星
         if tid == '/pornstars':
             sort = extend.get('o', 'ms') if extend else 'ms'
             url = f'{tid}?page={pg}'
@@ -267,7 +270,6 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
-        # 内部点击
         if 'playlists_click' in tid:
             tid = tid.split('click_')[-1]
             if pg == '1':
@@ -328,7 +330,6 @@ class Spider(Spider):
 
     def searchContent(self, key, quick, pg="1", sort=None):
         real_key = keyword_map.get(key, key)
-        # 修复搜索：只有在 sort 有值时才拼接 &o=
         url = f'/video/search?search={real_key}&page={pg}'
         if sort: url += f"&o={sort}"
         data = self.getpq(url)
@@ -368,7 +369,6 @@ class Spider(Spider):
         return [200, data.headers['Content-Type'], data.content]
 
     def gethost(self):
-        # 锁定 CN 域名
         return "https://cn.pornhub.com"
 
     def e64(self, text):
