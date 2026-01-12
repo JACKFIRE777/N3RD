@@ -72,13 +72,15 @@ class Spider(Spider):
     def destroy(self):
         pass
 
-    # 工具函数：格式化播放量
+    # 工具函数：格式化播放量 (增强型)
     def format_views(self, raw_views):
         if not raw_views: return ""
-        # 移除多余文字和符号
-        clean_str = raw_views.replace(',', '').replace(' ', '').replace('Views', '').replace('次播放', '').upper()
+        # 仅保留数字、小数点和单位(B, M, K)
+        clean_str = re.sub(r'[^0-9\.BMKbmk]', '', raw_views).upper()
+        if not clean_str: return ""
+        
         match = re.search(r'([\d\.]+)([BMK]?)', clean_str)
-        if not match: return raw_views
+        if not match: return clean_str
         try:
             value = float(match.group(1))
             unit = match.group(2)
@@ -274,14 +276,14 @@ class Spider(Spider):
         if 'director_click' in tid:
             tid = tid.split('click_')[-1]
             data = self.getpq(f'{tid}/videos?page={pg}')
-            result['list'] = self.getlist(data('#showAllChanelVideos .pcVideoListItem'))
+            result['list'] = self.getlist(data('#showAllChanelVideos .pcVideoListItem, #videoCategory .pcVideoListItem'))
             return result
 
         if 'pornstars_click' in tid:
             tid = tid.split('click_')[-1]
             data = self.getpq(f'{tid}/videos?page={pg}')
-            # 明星详情页的视频列表
-            result['list'] = self.getlist(data('#mostRecentVideosSection .pcVideoListItem, #showAllChanelVideos .pcVideoListItem'))
+            # 修正选择器：确保包含所有视频区块
+            result['list'] = self.getlist(data('#mostRecentVideosSection .pcVideoListItem, #showAllChanelVideos .pcVideoListItem, #videoCategory .pcVideoListItem'))
             return result
 
         result['list'] = vdata
@@ -381,14 +383,17 @@ class Spider(Spider):
             title = i('.phimage img').attr('alt') or i('.title a').text() or i('a').attr('title')
             img = i('.phimage img').attr('data-src') or i('.phimage img').attr('src') or i('img').attr('src')
             
-            # --- 核心修改：适配明星页与频道页的播放量抓取 ---
-            # 依次尝试：标准列表标签、明星页专用标签、频道页标签
+            # --- 适配明星页逻辑 ---
+            # 1. 尝试从标准 var 标签取
+            # 2. 尝试从 videoDetailsBlock 下的 span.views 取
+            # 3. 明星页经常直接在 span.views 里写文本而没有 var
             raw_views = (
                 i('.views var').text() or 
-                i('.vViews').text() or 
-                i('.videoViews').text() or
-                i('.views').text()
+                i('.videoDetailsBlock .views').text() or 
+                i('.views').text() or
+                i('.vViews').text()
             )
+            
             views = self.format_views(raw_views)
             duration = i('.duration').text()
             
