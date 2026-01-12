@@ -184,35 +184,31 @@ class Spider(Spider):
                 result['list'] = self.getlist(vlist)
             return result
 
-        # 3. 片单列表修复
-        if tid == '/playlists':
-            pl_sort = sort if sort else 'mv'
-            url = f'{tid}?o={pl_sort}&page={pg}'
-            data = self.getpq(url)
-            # 兼容多种可能的容器选择器
-            vhtml = data('#playlistsListing li') or data('.playlist-listing-item') or data('#playListSection li')
-            for i in vhtml.items():
-                a_tag = i('a.title') or i('.thumbnail-info-wrapper a') or i('a').eq(0)
-                link = a_tag.attr('href')
-                if not link or 'view_video' in link: continue 
+# 3. 片单（直接使用脚本1）
+if tid == '/playlists':
+    sort = extend.get('o', '') if extend else ''
+    url = f'{tid}?page={pg}' + (f"&o={sort}" if sort else "")
+    data = self.getpq(url)
+    vhtml = data('#playListSection li')
 
-                # 修复封面：尝试抓取多种可能的属性
-                img_obj = i('img')
-                pic = img_obj.attr('data-medium-thumb') or img_obj.attr('data-src') or img_obj.attr('data-thumb_url') or img_obj.attr('src')
-                
-                name = a_tag.text() or a_tag.attr('title') or i('.playlistName').text()
-                remarks = i('.playlist-videos').text().strip() or i('.number').text() or "片单"
+    for i in vhtml.items():
+        pic = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
+        a = i('.thumbnail-info-wrapper .display-block a')
+        if not a or not a.attr('href'):
+            continue
 
-                vdata.append({
-                    'vod_id': 'playlists_click_' + link,
-                    'vod_name': name.strip() if name else "未命名片单",
-                    'vod_pic': self.proxy(pic),
-                    'vod_tag': 'folder',
-                    'vod_remarks': remarks,
-                    'style': {"type": "rect", "ratio": 1.778}
-                })
-            result['list'] = vdata
-            return result
+        vdata.append({
+            'vod_id': 'playlists_click_' + a.attr('href'),
+            'vod_name': a.attr('title'),
+            'vod_pic': self.proxy(pic),
+            'vod_tag': 'folder',
+            'vod_remarks': i('.playlist-videos .number').text(),
+            'style': {"type": "rect", "ratio": 1.778}
+        })
+
+    result['list'] = vdata
+    return result
+
 
         # 4. 片单内部视频
         if 'playlists_click' in tid:
