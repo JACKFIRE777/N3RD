@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 (Restored: Views+Duration, Added: Search Category, Enhanced: Filters)
+# by @嗷呜 (Restored: Views+Duration, Added: Search Category, Fixed: Channel/Star Data)
 import json
 import re
 import sys
@@ -87,7 +87,7 @@ class Spider(Spider):
             "站内搜索": "manual_search_page"
         }
 
-        # 核心：根据源码构建完整的筛选器
+        # 视频专用筛选器
         video_filters = [
             {"key": "o", "name": "排序", "value": [
                 {"n": "最新精选", "v": ""}, {"n": "最多次观看", "v": "mv"}, {"n": "最高分", "v": "tr"},
@@ -101,17 +101,26 @@ class Spider(Spider):
                 {"n": "每月", "v": "m"}, {"n": "每年", "v": "y"}
             ]}
         ]
+
+        # 频道专用筛选器
+        channel_filters = [{"key": "o", "name": "排序", "value": [
+            {"n": "综合排名", "v": "rk"}, {"n": "最多观看", "v": "mv"}, {"n": "最多订阅", "v": "ms"}, {"n": "首字母", "v": "a"}
+        ]}]
+
+        # 明星专用筛选器
+        star_filters = [{"key": "o", "name": "排序", "value": [
+            {"n": "最多订阅", "v": "ms"}, {"n": "最多观看", "v": "mv"}, {"n": "热门趋势", "v": "t"}, {"n": "首字母", "v": "a"}
+        ]}]
         
         classes = []
         filters = {}
 
         for k in cateManual:
             classes.append({'type_name': k, 'type_id': cateManual[k]})
-            # 分类本身是目录，不需要在这里加筛选；但点击目录进入后的 TID 会带上这些筛选
-            if k in ['视频', '站内搜索', '频道', '明星']: 
-                filters[cateManual[k]] = video_filters
+            if k in ['视频', '站内搜索']: filters[cateManual[k]] = video_filters
+            elif k == '频道': filters[cateManual[k]] = channel_filters
+            elif k == '明星': filters[cateManual[k]] = star_filters
 
-        # 关键词分类也支持完整筛选
         for kw in keyword_list:
             tid = f"keyword__{kw}"
             classes.append({'type_name': kw, 'type_id': tid})
@@ -122,6 +131,7 @@ class Spider(Spider):
         return result
 
     def homeVideoContent(self):
+        # 恢复原始推荐逻辑
         data = self.getpq('/recommended')
         return {'list': self.getlist(data("#recommendedListings .pcVideoListItem"))}
 
@@ -129,7 +139,6 @@ class Spider(Spider):
         result = {'page': pg, 'pagecount': 9999, 'limit': 90, 'total': 999999}
         vdata = []
         
-        # 获取所有筛选参数
         sort = extend.get('o') if extend else None
         prod = extend.get('p') if extend else None
         time = extend.get('t') if extend else None
@@ -155,47 +164,47 @@ class Spider(Spider):
             kw = tid.replace('keyword__', '')
             return self.searchContent(kw, quick=False, pg=pg, sort=sort, prod=prod, time=time)
 
-        # 视频分类逻辑 (包含 /video 和 从 /categories 点进去的类目)
+        # 视频分类特殊逻辑 (首页 vs 列表页)
         if tid == '/video' or '_this_video' in tid:
-            # 第一页且无筛选，直接抓首页内容
             if pg == '1' and not sort and not prod and not time:
                 data = self.getpq('/')
                 result['list'] = self.getlist(data('.pcVideoListItem'))
             else:
-                base_tid = tid.split('_this_video')[0]
-                # 构建多参数 URL
-                params = [f"page={pg}"]
-                if sort: params.append(f"o={sort}")
-                if prod: params.append(f"p={prod}")
-                if time: params.append(f"t={time}")
-                
-                connector = "&" if "?" in base_tid else "?"
-                url = f"{base_tid}{connector}{'&'.join(params)}"
+                base_tid = tid.split('_this_video')[0].split('?')[0]
+                url = f"{base_tid}?page={pg}"
+                if sort: url += f"&o={sort}"
+                if prod: url += f"&p={prod}"
+                if time: url += f"&t={time}"
                 data = self.getpq(url)
-                # 分类页面的容器 ID 可能是 #videoCategory 或空
                 vlist = data('#videoCategory .pcVideoListItem') or data('.pcVideoListItem')
                 result['list'] = self.getlist(vlist)
             return result
 
-        if tid == '/categories' and pg == '1':
-            result['pagecount'] = 1
-            data = self.getpq(f'{tid}')
-            vhtml = data('.categoriesListSection li .relativeWrapper')
+        # 频道列表 (修复：修正选择器)
+        if tid == '/channels':
+            chan_sort = sort if sort else 'rk'
+            data = self.getpq(f'{tid}?o={chan_sort}&page={pg}')
+            vhtml = data('#filterChannelsSection li') # 抓取 li 容器
             for i in vhtml.items():
+                if not i('.avatar a').attr('href'): continue
+                views = self.format_views(i('.descriptionContainer ul li').eq(-1).text())
                 vdata.append({
-                    'vod_id': i('a').attr('href') + '_this_video', 'vod_name': i('a').attr('alt'),
-                    'vod_pic': self.proxy(i('a img').attr('src')), 'vod_tag': 'folder',
-                    'style': {"type": "rect", "ratio": 1.778}
+                    'vod_id': 'director_click_' + i('.avatar a').attr('href'),
+                    'vod_name': i('.avatar img').attr('alt'),
+                    'vod_pic': self.proxy(i('.avatar img').attr('src')),
+                    'vod_tag': 'folder', 'vod_remarks': f"播放量：{views}",
+                    'style': {"type": "rect", "ratio": 1}
                 })
             result['list'] = vdata
             return result
 
-        # 明星列表/频道列表/内部逻辑 (沿用上一版修复后的逻辑)
+        # 明星列表 (修复：修正选择器)
         if tid == '/pornstars':
             star_sort = sort if sort else 'ms'
             data = self.getpq(f'{tid}?o={star_sort}&page={pg}')
-            vhtml = data('#popularPornstars .performerCard .wrap')
+            vhtml = data('#popularPornstars .performerCard') # 抓取卡片容器
             for i in vhtml.items():
+                if not i('a').attr('href'): continue
                 views = self.format_views(i('.performerVideosViewsCount span').eq(-1).text())
                 vdata.append({
                     'vod_id': 'pornstars_click_' + i('a').attr('href'),
@@ -207,6 +216,7 @@ class Spider(Spider):
             result['list'] = vdata
             return result
 
+        # 明星/频道点击后内部视频
         if 'pornstars_click' in tid or 'director_click' in tid:
             base_url = tid.split('click_')[-1]
             url = f'{base_url}/videos?page={pg}'
@@ -214,7 +224,7 @@ class Spider(Spider):
             if prod: url += f"&p={prod}"
             if time: url += f"&t={time}"
             data = self.getpq(url)
-            vlist = data('.pcVideoListItem')
+            vlist = data('#mostRecentVideosSection .pcVideoListItem') or data('#showAllChanelVideos .pcVideoListItem') or data('.pcVideoListItem')
             result['list'] = self.getlist(vlist)
             return result
 
@@ -230,6 +240,19 @@ class Spider(Spider):
                     'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
                     'vod_pic': self.proxy(pic), 'vod_tag': 'folder',
                     'vod_remarks': i('.playlist-videos .number').text(), 'style': {"type": "rect", "ratio": 1.778}
+                })
+            result['list'] = vdata
+            return result
+
+        if tid == '/categories' and pg == '1':
+            result['pagecount'] = 1
+            data = self.getpq(f'{tid}')
+            vhtml = data('.categoriesListSection li .relativeWrapper')
+            for i in vhtml.items():
+                vdata.append({
+                    'vod_id': i('a').attr('href') + '_this_video', 'vod_name': i('a').attr('alt'),
+                    'vod_pic': self.proxy(i('a img').attr('src')), 'vod_tag': 'folder',
+                    'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
