@@ -7,7 +7,7 @@
 	  
   { "key": "py_Phb1", "name": "🔞测Pornhub-cn", "type": 3, "api": "./phb1.py", "style": { "type": "rect", "ratio": 1.778 } },
 	  
-  { "key": "py_Phb11", "name": "🔞测1Pornhub", "type": 3, "api": "./phb1-增强搜索存档.py", "style": { "type": "rect", "ratio": 1.778 } },
+  { "key": "py_Phb11", "name": "🔞测1Pornhub", "type": 3, "api": "./phb260112.py", "style": { "type": "rect", "ratio": 1.778 } },
   { "key": "py_Xhm", "name": "🔞🍑XHamster", "type": 3, "api": "./Xhm.py", "style": { "type": "rect", "ratio": 1.778 } },
   { "key": "py_Xvd", "name": "🔞🍑Xvideos", "type": 3, "api": "./Xvd.py", "style": { "type": "rect", "ratio": 1.778 } },
   { "key": "py_lav", "name": "🔞🍑撸先生", "type": 3, "api": "./lavAPP.py", "style": { "type": "rect", "ratio": 1.778 } },
