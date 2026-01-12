@@ -72,7 +72,7 @@ class Spider(Spider):
     def destroy(self):
         pass
 
-    # 工具函数：格式化播放量 (增强型)
+    # 工具函数：格式化播放量
     def format_views(self, raw_views):
         if not raw_views: return ""
         # 仅保留数字、小数点和单位(B, M, K)
@@ -111,28 +111,12 @@ class Spider(Spider):
             {"n": "最热门", "v": "ht"}, {"n": "最长视频", "v": "lg"}, {"n": "最新发布", "v": "cm"}
         ]}]
         
-        playlist_filters = [{"key": "o", "name": "排序", "value": [
-            {"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"}, {"n": "最新创建", "v": "cm"}, {"n": "首字母", "v": "a"}
-        ]}]
-
-        channel_filters = [{"key": "o", "name": "排序", "value": [
-            {"n": "综合排名", "v": "rk"}, {"n": "最多观看", "v": "mv"}, {"n": "最多订阅", "v": "ms"}, {"n": "首字母", "v": "a"}
-        ]}]
-
-        star_filters = [{"key": "o", "name": "排序", "value": [
-            {"n": "最多订阅", "v": "ms"}, {"n": "最多观看", "v": "mv"}, {"n": "热门趋势", "v": "t"}, {"n": "首字母", "v": "a"}
-        ]}]
+        filters = {cateManual[k]: video_filters for k in cateManual if k != '分类'}
+        filters['/playlists'] = [{"key": "o", "name": "排序", "value": [{"n": "最多观看", "v": "mv"}, {"n": "最高评分", "v": "tr"}]}]
 
         classes = []
-        filters = {}
-
         for k in cateManual:
             classes.append({'type_name': k, 'type_id': cateManual[k]})
-            if k == '视频': filters[cateManual[k]] = video_filters
-            elif k == '片单': filters[cateManual[k]] = playlist_filters
-            elif k == '频道': filters[cateManual[k]] = channel_filters
-            elif k == '明星': filters[cateManual[k]] = star_filters
-            elif k == '站内搜索': filters[cateManual[k]] = video_filters
 
         for kw in keyword_list:
             tid = f"keyword__{kw}"
@@ -155,21 +139,15 @@ class Spider(Spider):
             if pg != '1': return {'list': []}
             result['pagecount'] = 1
             vdata.append({
-                'vod_id': 'tip_search',
-                'vod_name': '👉 点顶部🔍图标可输入任意文字',
+                'vod_id': 'tip_search', 'vod_name': '👉 点顶部🔍图标可输入任意文字',
                 'vod_pic': 'https://ci.phncdn.com/www-static/images/pornhub_logo_straight.png',
-                'vod_tag': 'folder',
-                'vod_remarks': '使用说明',
-                'style': {"type": "rect", "ratio": 1.778}
+                'vod_tag': 'folder', 'vod_remarks': '使用说明', 'style': {"type": "rect", "ratio": 1.778}
             })
             for kw in keyword_list:
                 vdata.append({
-                    'vod_id': f"keyword__{kw}",
-                    'vod_name': kw,
+                    'vod_id': f"keyword__{kw}", 'vod_name': kw,
                     'vod_pic': 'https://ci.phncdn.com/www-static/images/pornhub_logo_straight.png',
-                    'vod_tag': 'folder',
-                    'vod_remarks': '热门标签',
-                    'style': {"type": "rect", "ratio": 1.778}
+                    'vod_tag': 'folder', 'vod_remarks': '热门标签', 'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
@@ -182,48 +160,36 @@ class Spider(Spider):
 
         if tid == '/video' or '_this_video' in tid:
             base_tid = tid.split('_this_video')[0]
-            params = {}
-            if '?' in base_tid:
-                for p in base_tid.split('?')[1].split('&'):
-                    if '=' in p: k, v = p.split('=', 1); params[k] = v
-            params['page'] = pg
+            params = {'page': pg}
             if extend and 'o' in extend: params['o'] = extend['o']
             q_str = '&'.join([f"{k}={v}" for k, v in params.items() if v != ''])
             data = self.getpq(f"{base_tid.split('?')[0]}?{q_str}")
-            result['list'] = self.getlist(data('#videoCategory .pcVideoListItem'))
+            result['list'] = self.getlist(data('#videoCategory .pcVideoListItem, .video_Grid_1 .pcVideoListItem'))
             return result
 
         if tid == '/playlists':
-            sort = extend.get('o', '') if extend else ''
-            url = f'{tid}?page={pg}' + (f"&o={sort}" if sort else "")
-            data = self.getpq(url)
+            data = self.getpq(f'{tid}?page={pg}')
             vhtml = data('#playListSection li')
             for i in vhtml.items():
-                pic = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
                 vdata.append({
                     'vod_id': 'playlists_click_' + i('.thumbnail-info-wrapper .display-block a').attr('href'),
                     'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
-                    'vod_pic': self.proxy(pic),
-                    'vod_tag': 'folder',
-                    'vod_remarks': i('.playlist-videos .number').text(),
+                    'vod_pic': self.proxy(i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')),
+                    'vod_tag': 'folder', 'vod_remarks': i('.playlist-videos .number').text(),
                     'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
 
         if tid == '/channels':
-            sort = extend.get('o', 'rk') if extend else 'rk'
-            data = self.getpq(f'{tid}?o={sort}&page={pg}')
+            data = self.getpq(f'{tid}?page={pg}')
             vhtml = data('#filterChannelsSection li .description')
             for i in vhtml.items():
-                views = self.format_views(i('.descriptionContainer ul li').eq(-1).text())
                 vdata.append({
                     'vod_id': 'director_click_' + i('.avatar a').attr('href'),
                     'vod_name': i('.avatar img').attr('alt'),
                     'vod_pic': self.proxy(i('.avatar img').attr('src')),
-                    'vod_tag': 'folder',
-                    'vod_remarks': f"播放量：{views}" if views else "",
-                    'style': {"type": "rect", "ratio": 1}
+                    'vod_tag': 'folder', 'style': {"type": "rect", "ratio": 1}
                 })
             result['list'] = vdata
             return result
@@ -235,55 +201,42 @@ class Spider(Spider):
             for i in vhtml.items():
                 vdata.append({
                     'vod_id': i('a').attr('href') + '_this_video',
-                    'vod_name': i('a').attr('alt'),
-                    'vod_pic': self.proxy(i('a img').attr('src')),
-                    'vod_tag': 'folder',
-                    'style': {"type": "rect", "ratio": 1.778}
+                    'vod_name': i('a').attr('alt'), 'vod_pic': self.proxy(i('a img').attr('src')),
+                    'vod_tag': 'folder', 'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
 
         if tid == '/pornstars':
-            sort = extend.get('o', 'ms') if extend else 'ms'
-            data = self.getpq(f'{tid}?o={sort}&page={pg}')
+            data = self.getpq(f'{tid}?page={pg}')
             vhtml = data('#popularPornstars .performerCard .wrap')
             for i in vhtml.items():
-                views = self.format_views(i('.performerVideosViewsCount span').eq(-1).text())
                 vdata.append({
                     'vod_id': 'pornstars_click_' + i('a').attr('href'),
                     'vod_name': i('.performerCardName').text(),
                     'vod_pic': self.proxy(i('a img').attr('src')),
-                    'vod_tag': 'folder',
-                    'vod_year': i('.performerVideosViewsCount span').eq(0).text(),
-                    'vod_remarks': f"播放量：{views}" if views else "",
-                    'style': {"type": "rect", "ratio": 1, "width": "150%"}
+                    'vod_tag': 'folder', 'style': {"type": "rect", "ratio": 1}
                 })
             result['list'] = vdata
             return result
 
         if 'playlists_click' in tid:
             tid = tid.split('click_')[-1]
-            if pg == '1':
-                hdata = self.getpq(tid)
-                self.token = hdata('#searchInput').attr('data-token')
-                result['list'] = self.getlist(hdata('#videoPlaylist .pcVideoListItem'))
-            else:
-                tid = tid.split('playlist/')[-1]
-                data = self.getpq(f'/playlist/viewChunked?id={tid}&token={self.token}&page={pg}')
-                result['list'] = self.getlist(data('.pcVideoListItem'))
+            data = self.getpq(f"{tid}?page={pg}")
+            result['list'] = self.getlist(data('.pcVideoListItem'))
             return result
 
         if 'director_click' in tid:
             tid = tid.split('click_')[-1]
             data = self.getpq(f'{tid}/videos?page={pg}')
-            result['list'] = self.getlist(data('#showAllChanelVideos .pcVideoListItem, #videoCategory .pcVideoListItem'))
+            result['list'] = self.getlist(data('.pcVideoListItem'))
             return result
 
         if 'pornstars_click' in tid:
             tid = tid.split('click_')[-1]
             data = self.getpq(f'{tid}/videos?page={pg}')
-            # 修正选择器：确保包含所有视频区块
-            result['list'] = self.getlist(data('#mostRecentVideosSection .pcVideoListItem, #showAllChanelVideos .pcVideoListItem, #videoCategory .pcVideoListItem'))
+            # 明星详情页面的视频容器
+            result['list'] = self.getlist(data('.pcVideoListItem, #mostRecentVideosSection .pcVideoListItem, #videoCategory .pcVideoListItem'))
             return result
 
         result['list'] = vdata
@@ -295,17 +248,13 @@ class Spider(Spider):
         data = self.getpq(ids[0])
         vn = data('meta[property="og:title"]').attr('content')
         dtext = data('.userInfo .usernameWrap a')
-        pdtitle = '[a=cr:' + json.dumps(
-            {'id': 'director_click_' + dtext.attr('href'), 'name': dtext.text()}) + '/]' + dtext.text() + '[/a]'
+        pdtitle = '[a=cr:' + json.dumps({'id': 'director_click_' + dtext.attr('href'), 'name': dtext.text()}) + '/]' + dtext.text() + '[/a]'
         vod = {
-            'vod_name': vn,
-            'vod_director': pdtitle,
+            'vod_name': vn, 'vod_director': pdtitle,
             'vod_remarks': (data('.userInfo').text() + ' / ' + data('.ratingInfo').text()).replace('\n', ' / '),
-            'vod_play_from': 'Pornhub',
-            'vod_play_url': ''
+            'vod_play_from': 'Pornhub', 'vod_play_url': ''
         }
         js_content = data("#player script").eq(0).text()
-        plist = [f"{vn}${self.e64(f'{1}@@@@{url}')}"]
         try:
             pattern = r'"mediaDefinitions":\s*(\[.*?\]),\s*"isVertical"'
             match = re.search(pattern, js_content, re.DOTALL)
@@ -317,8 +266,9 @@ class Spider(Spider):
                     if not videoUrl: continue
                     height = media.get('height') or media.get('quality') or '0'
                     plist.append(f"{height}${self.e64(f'{0}@@@@{videoUrl}')}")
+                vod['vod_play_url'] = '#'.join(plist)
         except: pass
-        vod['vod_play_url'] = '#'.join(plist)
+        if not vod['vod_play_url']: vod['vod_play_url'] = f"默认${self.e64(f'1@@@@{url}')}"
         return {'list': [vod]}
 
     def searchContent(self, key, quick, pg="1", sort=None):
@@ -348,10 +298,9 @@ class Spider(Spider):
         parsed_url = urlparse(url)
         durl = parsed_url.scheme + "://" + parsed_url.netloc
         for index, string in enumerate(lines):
-            if '#EXT' not in string:
-                if 'http' not in string:
-                    domain = last_r if string.count('/') < 2 else durl
-                    string = domain + ('' if string.startswith('/') else '/') + string
+            if '#EXT' not in string and 'http' not in string:
+                domain = last_r if string.count('/') < 2 else durl
+                string = domain + ('' if string.startswith('/') else '/') + string
                 lines[index] = self.proxy(string, string.split('.')[-1].split('?')[0])
         return [200, "application/vnd.apple.mpegur", '\n'.join(lines)]
 
@@ -383,15 +332,13 @@ class Spider(Spider):
             title = i('.phimage img').attr('alt') or i('.title a').text() or i('a').attr('title')
             img = i('.phimage img').attr('data-src') or i('.phimage img').attr('src') or i('img').attr('src')
             
-            # --- 适配明星页逻辑 ---
-            # 1. 尝试从标准 var 标签取
-            # 2. 尝试从 videoDetailsBlock 下的 span.views 取
-            # 3. 明星页经常直接在 span.views 里写文本而没有 var
+            # --- 精确适配您提供的 HTML 结构 ---
+            # 优先级：1. span.views里的var (明星页) 2. 这里的.videoDetailBlock (修正单数拼写)
             raw_views = (
+                i('span.views var').text() or 
+                i('.videoDetailBlock .views').text() or 
                 i('.views var').text() or 
-                i('.videoDetailsBlock .views').text() or 
-                i('.views').text() or
-                i('.vViews').text()
+                i('.views').text()
             )
             
             views = self.format_views(raw_views)
@@ -402,11 +349,8 @@ class Spider(Spider):
             if duration: rem.append(f"⏱ {duration}")
 
             vlist.append({
-                'vod_id': href,
-                'vod_name': title,
-                'vod_pic': self.proxy(img),
-                'vod_remarks': " · ".join(rem),
-                'style': {'ratio': 1.778, 'type': 'rect'}
+                'vod_id': href, 'vod_name': title, 'vod_pic': self.proxy(img),
+                'vod_remarks': " · ".join(rem), 'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
