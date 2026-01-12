@@ -16,7 +16,7 @@ from base.spider import Spider
 # 用户可维护：一级关键字列表 & 映射
 # 这些词会显示在【站内搜索】分类里，方便快速点击
 # ---------------------------
-keyword_list = ["中国", "日本","韩国","4K","中文字幕","BLACKED", "素人", "音乐", "合辑", "MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
+keyword_list = ["中国", "日本","韩国","4K","中文字幕","BLACKED", "素人", "音乐", "合辑", "PMV","MartinPaola", "Reislin", "Lindsey Love", "ComerZ", "Yui Peachpie", "奶头乐", "大屁股"]
 
 keyword_map = {
     "中国": "中国",
