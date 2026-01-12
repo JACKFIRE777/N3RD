@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 (Restored: Views+Duration, Added: Search Category, Fixed: Playlist Data)
+# by @嗷呜 (Restored: Views+Duration, Added: Search Category, Fixed: Playlist Image & Selection)
 import json
 import re
 import sys
@@ -124,8 +124,9 @@ class Spider(Spider):
             filters[tid] = video_filters
 
         for i in range(1, 151):
-            filters[f"/video?c={i}"] = video_filters
-            filters[f"/video?c={i}_this_video"] = video_filters
+            tid = f"/video?c={i}"
+            filters[tid] = video_filters
+            filters[tid + "_this_video"] = video_filters
 
         result['class'] = classes
         result['filters'] = filters
@@ -142,6 +143,7 @@ class Spider(Spider):
         time = extend.get('t') if extend else None
         prod = extend.get('p') if extend else None
 
+        # 1. 站内搜索
         if tid == 'manual_search_page':
             if pg != '1': return {'list': []}
             result['pagecount'] = 1
@@ -163,19 +165,17 @@ class Spider(Spider):
             kw = tid.replace('keyword__', '')
             return self.searchContent(kw, quick=False, pg=pg, sort=sort, time=time, prod=prod)
 
-        # 视频列表（含分类）
+        # 2. 视频分类
         if tid == '/video' or '_this_video' in tid:
             if pg == '1' and not sort and not time and not prod and tid == '/video':
                 data = self.getpq('/')
                 result['list'] = self.getlist(data('.pcVideoListItem'))
             else:
                 base_tid = tid.split('_this_video')[0]
-                params = []
+                params = [f"page={pg}"]
                 if '?' in base_tid:
-                    path, query = base_tid.split('?', 1)
-                    params.append(query)
+                    path, query = base_tid.split('?', 1); params.append(query)
                 else: path = base_tid
-                params.append(f"page={pg}")
                 if sort: params.append(f"o={sort}")
                 if time: params.append(f"t={time}")
                 if prod: params.append(f"p={prod}")
@@ -184,45 +184,51 @@ class Spider(Spider):
                 result['list'] = self.getlist(vlist)
             return result
 
-        # 【核心修复】片单列表抓取
+        # 3. 片单列表修复
         if tid == '/playlists':
             pl_sort = sort if sort else 'mv'
             url = f'{tid}?o={pl_sort}&page={pg}'
             data = self.getpq(url)
-            # 兼容多个 ID
-            vhtml = data('#playlistsListing li.playlist-listing-item') or data('#playListSection li') or data('.playlist-listing-item')
+            # 兼容多种可能的容器选择器
+            vhtml = data('#playlistsListing li') or data('.playlist-listing-item') or data('#playListSection li')
             for i in vhtml.items():
-                link = i('a.title').attr('href') or i('.thumbnail-info-wrapper a').attr('href')
-                if not link: continue
-                pic = i('img').attr('data-src') or i('img').attr('src')
+                a_tag = i('a.title') or i('.thumbnail-info-wrapper a') or i('a').eq(0)
+                link = a_tag.attr('href')
+                if not link or 'view_video' in link: continue 
+
+                # 修复封面：尝试抓取多种可能的属性
+                img_obj = i('img')
+                pic = img_obj.attr('data-medium-thumb') or img_obj.attr('data-src') or img_obj.attr('data-thumb_url') or img_obj.attr('src')
+                
+                name = a_tag.text() or a_tag.attr('title') or i('.playlistName').text()
+                remarks = i('.playlist-videos').text().strip() or i('.number').text() or "片单"
+
                 vdata.append({
                     'vod_id': 'playlists_click_' + link,
-                    'vod_name': i('a.title').text() or i('.thumbnail-info-wrapper a').attr('title'),
+                    'vod_name': name.strip() if name else "未命名片单",
                     'vod_pic': self.proxy(pic),
                     'vod_tag': 'folder',
-                    'vod_remarks': i('.playlist-videos').text().strip() or i('.number').text(),
+                    'vod_remarks': remarks,
                     'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
 
-        # 【核心修复】点击片单后内部视频抓取
+        # 4. 片单内部视频
         if 'playlists_click' in tid:
             link = tid.split('click_')[-1]
             if pg == '1':
                 hdata = self.getpq(link)
-                # 尝试抓取翻页用的 token
                 self.token = hdata('#searchInput').attr('data-token') or ""
                 vlist = hdata('#videoPlaylist .pcVideoListItem') or hdata('.pcVideoListItem')
                 result['list'] = self.getlist(vlist)
             else:
                 pl_id = link.split('playlist/')[-1]
-                # 异步加载的分页逻辑
                 data = self.getpq(f'/playlist/viewChunked?id={pl_id}&token={self.token}&page={pg}')
                 result['list'] = self.getlist(data('.pcVideoListItem'))
             return result
 
-        # 频道/明星 (保持上一版逻辑)
+        # 5. 频道与明星
         if tid == '/channels':
             chan_sort = sort if sort else 'rk'
             data = self.getpq(f'{tid}?o={chan_sort}&page={pg}')
@@ -266,6 +272,7 @@ class Spider(Spider):
             result['list'] = self.getlist(vlist)
             return result
 
+        # 6. 分类目录
         if tid == '/categories' and pg == '1':
             result['pagecount'] = 1
             data = self.getpq(f'{tid}')
