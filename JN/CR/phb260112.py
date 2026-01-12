@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# by @嗷呜 (Restored: Views+Duration, Added: Search Category, Fixed: Dynamic Category Filters)
+# by @嗷呜 (Restored: Views+Duration, Added: Search Category, Fixed: Playlist Data)
 import json
 import re
 import sys
@@ -47,7 +47,6 @@ class Spider(Spider):
         self.session.proxies.update(self.proxies)
         self.session.headers.update(self.headers)
         
-        # 锁定 Cookie 语言为中文
         self.session.cookies.set('language', 'zh_CN', domain='.pornhub.com')
 
     def getName(self):
@@ -88,9 +87,9 @@ class Spider(Spider):
             "站内搜索": "manual_search_page"
         }
 
-        # 根据源码构建的完整筛选器
+        # 视频专用筛选器
         video_filters = [
-            {"key": "o", "name": "分类依据于", "value": [
+            {"key": "o", "name": "排序方式", "value": [
                 {"n": "最新精选", "v": ""}, {"n": "最多次观看", "v": "mv"}, {"n": "最高分", "v": "tr"},
                 {"n": "最热门", "v": "ht"}, {"n": "最长", "v": "lg"}, {"n": "最新", "v": "cm"}
             ]},
@@ -103,14 +102,11 @@ class Spider(Spider):
             ]}
         ]
 
-        channel_filters = [{"key": "o", "name": "排序", "value": [
-            {"n": "综合排名", "v": "rk"}, {"n": "最多观看", "v": "mv"}, {"n": "最多订阅", "v": "ms"}, {"n": "首字母", "v": "a"}
+        # 片单专用筛选器
+        playlist_filters = [{"key": "o", "name": "排序", "value": [
+            {"n": "最多次观看", "v": "mv"}, {"n": "最高分", "v": "tr"}, {"n": "最新", "v": "cm"}
         ]}]
 
-        star_filters = [{"key": "o", "name": "排序", "value": [
-            {"n": "最多订阅", "v": "ms"}, {"n": "最多观看", "v": "mv"}, {"n": "热门趋势", "v": "t"}, {"n": "首字母", "v": "a"}
-        ]}]
-        
         classes = []
         filters = {}
 
@@ -118,21 +114,18 @@ class Spider(Spider):
             classes.append({'type_name': k, 'type_id': cateManual[k]})
             tid = cateManual[k]
             if k in ['视频', '站内搜索']: filters[tid] = video_filters
-            elif k == '频道': filters[tid] = channel_filters
-            elif k == '明星': filters[tid] = star_filters
+            elif k == '片单': filters[tid] = playlist_filters
+            elif k == '频道': filters[tid] = [{"key": "o", "name": "排序", "value": [{"n": "综合排名", "v": "rk"}, {"n": "最多观看", "v": "mv"}]}]
+            elif k == '明星': filters[tid] = [{"key": "o", "name": "排序", "value": [{"n": "最多订阅", "v": "ms"}, {"n": "最多观看", "v": "mv"}]}]
 
-        # 关键字分类筛选器
         for kw in keyword_list:
             tid = f"keyword__{kw}"
             classes.append({'type_name': kw, 'type_id': tid})
             filters[tid] = video_filters
 
-        # 【核心修复】暴力预注册分类 ID (c=1 到 c=150) 的筛选器
-        # 这样当你点击“熟女(c=28)”时，App 发现 ID 匹配，就会显示筛选按钮
         for i in range(1, 151):
-            target_tid = f"/video?c={i}"
-            filters[target_tid] = video_filters
-            filters[f"{target_tid}_this_video"] = video_filters
+            filters[f"/video?c={i}"] = video_filters
+            filters[f"/video?c={i}_this_video"] = video_filters
 
         result['class'] = classes
         result['filters'] = filters
@@ -145,7 +138,6 @@ class Spider(Spider):
     def categoryContent(self, tid, pg, filter, extend):
         result = {'page': pg, 'pagecount': 9999, 'limit': 90, 'total': 999999}
         vdata = []
-        
         sort = extend.get('o') if extend else None
         time = extend.get('t') if extend else None
         prod = extend.get('p') if extend else None
@@ -171,35 +163,66 @@ class Spider(Spider):
             kw = tid.replace('keyword__', '')
             return self.searchContent(kw, quick=False, pg=pg, sort=sort, time=time, prod=prod)
 
-        # 视频列表处理（包含一级视频分类和从“分类”点进去的动态二级列表）
+        # 视频列表（含分类）
         if tid == '/video' or '_this_video' in tid:
-            # 第一页且无筛选时，/video 抓取真正的首页
             if pg == '1' and not sort and not time and not prod and tid == '/video':
                 data = self.getpq('/')
                 result['list'] = self.getlist(data('.pcVideoListItem'))
             else:
-                # 清洗 ID 逻辑：把 _this_video 这种标记去掉
                 base_tid = tid.split('_this_video')[0]
-                
-                # 拼接翻页和筛选参数
                 params = []
                 if '?' in base_tid:
                     path, query = base_tid.split('?', 1)
                     params.append(query)
-                else:
-                    path = base_tid
-                
+                else: path = base_tid
                 params.append(f"page={pg}")
                 if sort: params.append(f"o={sort}")
                 if time: params.append(f"t={time}")
                 if prod: params.append(f"p={prod}")
-                
-                url = f"{path}?{'&'.join(params)}"
-                data = self.getpq(url)
+                data = self.getpq(f"{path}?{'&'.join(params)}")
                 vlist = data('#videoCategory .pcVideoListItem') or data('.pcVideoListItem')
                 result['list'] = self.getlist(vlist)
             return result
 
+        # 【核心修复】片单列表抓取
+        if tid == '/playlists':
+            pl_sort = sort if sort else 'mv'
+            url = f'{tid}?o={pl_sort}&page={pg}'
+            data = self.getpq(url)
+            # 兼容多个 ID
+            vhtml = data('#playlistsListing li.playlist-listing-item') or data('#playListSection li') or data('.playlist-listing-item')
+            for i in vhtml.items():
+                link = i('a.title').attr('href') or i('.thumbnail-info-wrapper a').attr('href')
+                if not link: continue
+                pic = i('img').attr('data-src') or i('img').attr('src')
+                vdata.append({
+                    'vod_id': 'playlists_click_' + link,
+                    'vod_name': i('a.title').text() or i('.thumbnail-info-wrapper a').attr('title'),
+                    'vod_pic': self.proxy(pic),
+                    'vod_tag': 'folder',
+                    'vod_remarks': i('.playlist-videos').text().strip() or i('.number').text(),
+                    'style': {"type": "rect", "ratio": 1.778}
+                })
+            result['list'] = vdata
+            return result
+
+        # 【核心修复】点击片单后内部视频抓取
+        if 'playlists_click' in tid:
+            link = tid.split('click_')[-1]
+            if pg == '1':
+                hdata = self.getpq(link)
+                # 尝试抓取翻页用的 token
+                self.token = hdata('#searchInput').attr('data-token') or ""
+                vlist = hdata('#videoPlaylist .pcVideoListItem') or hdata('.pcVideoListItem')
+                result['list'] = self.getlist(vlist)
+            else:
+                pl_id = link.split('playlist/')[-1]
+                # 异步加载的分页逻辑
+                data = self.getpq(f'/playlist/viewChunked?id={pl_id}&token={self.token}&page={pg}')
+                result['list'] = self.getlist(data('.pcVideoListItem'))
+            return result
+
+        # 频道/明星 (保持上一版逻辑)
         if tid == '/channels':
             chan_sort = sort if sort else 'rk'
             data = self.getpq(f'{tid}?o={chan_sort}&page={pg}')
@@ -238,8 +261,6 @@ class Spider(Spider):
             base_url = tid.split('click_')[-1]
             url = f'{base_url}/videos?page={pg}'
             if sort: url += f"&o={sort}"
-            if time: url += f"&t={time}"
-            if prod: url += f"&p={prod}"
             data = self.getpq(url)
             vlist = data('#mostRecentVideosSection .pcVideoListItem') or data('#showAllChanelVideos .pcVideoListItem') or data('.pcVideoListItem')
             result['list'] = self.getlist(vlist)
@@ -256,22 +277,6 @@ class Spider(Spider):
                     'vod_pic': self.proxy(i('a img').attr('src')), 
                     'vod_tag': 'folder',
                     'style': {"type": "rect", "ratio": 1.778}
-                })
-            result['list'] = vdata
-            return result
-
-        if tid == '/playlists':
-            url = f'{tid}?page={pg}'
-            if sort: url += f"&o={sort}"
-            data = self.getpq(url)
-            vhtml = data('#playListSection li')
-            for i in vhtml.items():
-                pic = i('.largeThumb').attr('data-thumb_url') or i('.largeThumb').attr('src')
-                vdata.append({
-                    'vod_id': 'playlists_click_' + i('.thumbnail-info-wrapper .display-block a').attr('href'),
-                    'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
-                    'vod_pic': self.proxy(pic), 'vod_tag': 'folder',
-                    'vod_remarks': i('.playlist-videos .number').text(), 'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
