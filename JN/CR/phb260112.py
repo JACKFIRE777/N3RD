@@ -75,7 +75,6 @@ class Spider(Spider):
     def destroy(self):
         pass
 
-    # 工具函数：格式化播放量
     def format_views(self, raw_views):
         if not raw_views: return ""
         clean_str = raw_views.replace(',', '').replace(' ', '').upper()
@@ -94,7 +93,6 @@ class Spider(Spider):
 
     def homeContent(self, filter):
         result = {}
-        
         cateManual = {
             "视频": "/video",
             "片单": "/playlists",
@@ -142,9 +140,9 @@ class Spider(Spider):
         return result
 
     def homeVideoContent(self):
-        # 这里的首页保持推荐或改为首页
-        data = self.getpq('/')
-        return {'list': self.getlist(data(".pcVideoListItem"))}
+        # 保持原来的“推荐”逻辑
+        data = self.getpq('/recommended')
+        return {'list': self.getlist(data("#recommendedListings .pcVideoListItem"))}
 
     def categoryContent(self, tid, pg, filter, extend):
         result = {'page': pg, 'pagecount': 9999, 'limit': 90, 'total': 999999}
@@ -154,21 +152,15 @@ class Spider(Spider):
             if pg != '1': return {'list': []}
             result['pagecount'] = 1
             vdata.append({
-                'vod_id': 'tip_search',
-                'vod_name': '👉 点顶部🔍图标可输入任意文字',
+                'vod_id': 'tip_search', 'vod_name': '👉 点顶部🔍图标可输入任意文字',
                 'vod_pic': 'https://ci.phncdn.com/www-static/images/pornhub_logo_straight.png',
-                'vod_tag': 'folder',
-                'vod_remarks': '使用说明',
-                'style': {"type": "rect", "ratio": 1.778}
+                'vod_tag': 'folder', 'vod_remarks': '使用说明', 'style': {"type": "rect", "ratio": 1.778}
             })
             for kw in keyword_list:
                 vdata.append({
-                    'vod_id': f"keyword__{kw}",
-                    'vod_name': kw,
+                    'vod_id': f"keyword__{kw}", 'vod_name': kw,
                     'vod_pic': 'https://ci.phncdn.com/www-static/images/pornhub_logo_straight.png',
-                    'vod_tag': 'folder',
-                    'vod_remarks': '热门标签',
-                    'style': {"type": "rect", "ratio": 1.778}
+                    'vod_tag': 'folder', 'vod_remarks': '热门标签', 'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
@@ -178,24 +170,21 @@ class Spider(Spider):
             sort_opt = extend.get('o') if extend else None
             return self.searchContent(kw, quick=False, pg=pg, sort=sort_opt)
 
-        # ---------------- 视频分类逻辑优化 ----------------
+        # ---------------- 视频分类特殊逻辑 ----------------
         if tid == '/video' or '_this_video' in tid:
-            base_tid = tid.split('_this_video')[0].split('?')[0]
             sort = extend.get('o') if extend else None
-            
-            # 如果是第一页且没有选排序，直接访问首页内容 (https://cn.pornhub.com/)
+            # 如果是第一页且没有选择排序，抓取真正的首页 https://cn.pornhub.com/
             if pg == '1' and not sort:
                 data = self.getpq('/')
-                # 首页内容没有 #videoCategory 这个 ID，所以改用通用的 class 抓取
                 result['list'] = self.getlist(data('.pcVideoListItem'))
             else:
-                # 否则（有排序或有分页），访问视频列表页
+                # 其他情况（翻页或排序）走标准列表页
+                base_tid = tid.split('_this_video')[0].split('?')[0]
                 url = f"{base_tid}?page={pg}"
                 if sort: url += f"&o={sort}"
                 data = self.getpq(url)
                 result['list'] = self.getlist(data('#videoCategory .pcVideoListItem'))
             return result
-        # ------------------------------------------------
 
         if tid == '/playlists':
             sort = extend.get('o') if extend else None
@@ -208,10 +197,8 @@ class Spider(Spider):
                 vdata.append({
                     'vod_id': 'playlists_click_' + i('.thumbnail-info-wrapper .display-block a').attr('href'),
                     'vod_name': i('.thumbnail-info-wrapper .display-block a').attr('title'),
-                    'vod_pic': self.proxy(pic),
-                    'vod_tag': 'folder',
-                    'vod_remarks': i('.playlist-videos .number').text(),
-                    'style': {"type": "rect", "ratio": 1.778}
+                    'vod_pic': self.proxy(pic), 'vod_tag': 'folder',
+                    'vod_remarks': i('.playlist-videos .number').text(), 'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
             return result
@@ -228,8 +215,7 @@ class Spider(Spider):
                     'vod_id': 'director_click_' + i('.avatar a').attr('href'),
                     'vod_name': i('.avatar img').attr('alt'),
                     'vod_pic': self.proxy(i('.avatar img').attr('src')),
-                    'vod_tag': 'folder',
-                    'vod_remarks': f"播放量：{views}" if views else "",
+                    'vod_tag': 'folder', 'vod_remarks': f"播放量：{views}" if views else "",
                     'style': {"type": "rect", "ratio": 1}
                 })
             result['list'] = vdata
@@ -241,10 +227,8 @@ class Spider(Spider):
             vhtml = data('.categoriesListSection li .relativeWrapper')
             for i in vhtml.items():
                 vdata.append({
-                    'vod_id': i('a').attr('href') + '_this_video',
-                    'vod_name': i('a').attr('alt'),
-                    'vod_pic': self.proxy(i('a img').attr('src')),
-                    'vod_tag': 'folder',
+                    'vod_id': i('a').attr('href') + '_this_video', 'vod_name': i('a').attr('alt'),
+                    'vod_pic': self.proxy(i('a img').attr('src')), 'vod_tag': 'folder',
                     'style': {"type": "rect", "ratio": 1.778}
                 })
             result['list'] = vdata
@@ -262,8 +246,7 @@ class Spider(Spider):
                     'vod_id': 'pornstars_click_' + i('a').attr('href'),
                     'vod_name': i('.performerCardName').text(),
                     'vod_pic': self.proxy(i('a img').attr('src')),
-                    'vod_tag': 'folder',
-                    'vod_year': i('.performerVideosViewsCount span').eq(0).text(),
+                    'vod_tag': 'folder', 'vod_year': i('.performerVideosViewsCount span').eq(0).text(),
                     'vod_remarks': f"播放量：{views}" if views else "",
                     'style': {"type": "rect", "ratio": 1, "width": "150%"}
                 })
@@ -305,11 +288,9 @@ class Spider(Spider):
         dtext = data('.userInfo .usernameWrap a')
         pdtitle = '[a=cr:' + json.dumps({'id': 'director_click_' + dtext.attr('href'), 'name': dtext.text()}) + '/]' + dtext.text() + '[/a]'
         vod = {
-            'vod_name': vn,
-            'vod_director': pdtitle,
+            'vod_name': vn, 'vod_director': pdtitle,
             'vod_remarks': (data('.userInfo').text() + ' / ' + data('.ratingInfo').text()).replace('\n', ' / '),
-            'vod_play_from': 'Pornhub',
-            'vod_play_url': ''
+            'vod_play_from': 'Pornhub', 'vod_play_url': ''
         }
         js_content = data("#player script").eq(0).text()
         plist = [f"{vn}${self.e64(f'{1}@@@@{url}')}"]
@@ -337,8 +318,7 @@ class Spider(Spider):
 
     def playerContent(self, flag, id, vipFlags):
         ids = self.d64(id).split('@@@@')
-        if '.m3u8' in ids[1]:
-            ids[1] = self.proxy(ids[1], 'm3u8')
+        if '.m3u8' in ids[1]: ids[1] = self.proxy(ids[1], 'm3u8')
         return {'parse': int(ids[0]), 'url': ids[1], 'header': self.headers}
 
     def localProxy(self, param):
@@ -353,9 +333,7 @@ class Spider(Spider):
             url = ydata.headers['Location']
             data = requests.get(url, headers=self.headers, proxies=self.proxies).content.decode('utf-8')
         lines = data.strip().split('\n')
-        last_r = url[:url.rfind('/')]
-        parsed_url = urlparse(url)
-        durl = parsed_url.scheme + "://" + parsed_url.netloc
+        last_r = url[:url.rfind('/')]; parsed_url = urlparse(url); durl = parsed_url.scheme + "://" + parsed_url.netloc
         for index, string in enumerate(lines):
             if '#EXT' not in string:
                 if 'http' not in string:
@@ -393,11 +371,8 @@ class Spider(Spider):
             if views: rem.append(f"👁 {views}")
             if duration: rem.append(f"⏱ {duration}")
             vlist.append({
-                'vod_id': href,
-                'vod_name': title,
-                'vod_pic': self.proxy(img),
-                'vod_remarks': " · ".join(rem),
-                'style': {'ratio': 1.778, 'type': 'rect'}
+                'vod_id': href, 'vod_name': title, 'vod_pic': self.proxy(img),
+                'vod_remarks': " · ".join(rem), 'style': {'ratio': 1.778, 'type': 'rect'}
             })
         return vlist
 
