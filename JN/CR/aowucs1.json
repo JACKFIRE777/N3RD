@@ -1,0 +1,70 @@
+{
+  "spider": "https://github.com/franksun1211/TXT/raw/main/TVbox/E8jin/xyqxbpq.jar",
+  "wallpaper": "https://picsum.photos/1080/",
+  "notice": "嗷呜测试",
+  "sites": [
+    { "key": "py_wmdy", "name": "🔞无码抖音", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/%E6%97%A0%E7%A0%81%E6%8A%96%E9%9F%B3.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_wwys", "name": "哇哇影视", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/0186f10a_%E5%93%87%E5%93%87%E5%BD%B1%E8%A7%86.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_miss3", "name": "Miss3", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/16ec2b6b_Miss3.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_yhsh", "name": "浴火社", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/2127953b_%E6%B5%B4%E7%81%AB%E7%A4%BE.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_phb_j", "name": "Pornhub(J)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/27935a6f_Phb.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xvd_j", "name": "Xvd(J)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/27ceb0af_Xvd.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_appget", "name": "AppGet", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/3316175c_AppGet.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_twitter_j", "name": "推特(J)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/4206546d_%E6%8E%A8%E7%89%B9.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_you_j", "name": "优影视", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/518dcecc_%E4%BC%98.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_51cg", "name": "51吃瓜", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/51%E5%90%83%E7%93%9C.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_javxx", "name": "javxx", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/5814c3c5_javxx.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_twitter_j2", "name": "推特2", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/5dd64252_%E6%8E%A8%E7%89%B9.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_51xg", "name": "51吸瓜", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/74d945f5_51%E5%90%B8%E7%93%9C.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_91", "name": "91视频", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/91.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_phb_j2", "name": "Pornhub(J2)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/98d5c814_Pornhub.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_miss_j", "name": "Miss", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/b0611827_Miss.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xvideos_j", "name": "Xvideos(J)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/b81a3f6c_Xvideos.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_fxxj", "name": "分享小鸡", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/bbf19452_%E5%88%86%E4%BA%AB%E5%B0%8F%E9%B8%A1.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_szys", "name": "SZYS影视", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/ce2ca4e4_SZYS.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_dsys_j", "name": "DSYS影视(J)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/DSYS.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xhamster_j", "name": "xhamster(J)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/e084daac_xhamster.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_hitv", "name": "hitvAPP", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/hitvAPP.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_nunflix", "name": "nunflix", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/nunflix.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xhm_v", "name": "Xhm视频", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/py_Xhm.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xhamster_raw", "name": "xhamster", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/xhamster.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_cg_raw", "name": "吃瓜", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/%E5%90%83%E7%93%9C.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xhs_j", "name": "小红薯", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/%E5%B0%8F%E7%BA%A2%E8%96%AF.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_sq_j", "name": "涩琪", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/%E6%B6%A9%E7%90%AA.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_lavapp", "name": "lavAPP", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/apiv1535lavAPP.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_phb_x", "name": "Phb(X)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/apiv1561Phb.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_dsys_x", "name": "DSYS(X)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/apiv1587DSYS.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xvideos_x", "name": "Xvideos(X)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/apiv1665Xvideos.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xhs_app", "name": "小红薯APP", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/apiv1821%E5%B0%8F%E7%BA%A2%E8%96%AFAPP.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_twitter_app", "name": "推特APP", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/apiv323%E6%8E%A8%E7%89%B9APP.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_dsys_raw", "name": "DSYS影视", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/DSYS.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_xhs_mi", "name": "小红薯App[密]", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/e%E5%B0%8F%E7%BA%A2%E8%96%AFApp%5B%E5%AF%86%5D.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_twitter_mi", "name": "推特APP[密]", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/i%E6%8E%A8%E7%89%B9APP%5B%E5%AF%86%5D.py", "style": { "type": "rect", "ratio": 1.778 } },
+    { "key": "py_agys", "name": "爱瓜影视", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/xwck/%E7%88%B1%E7%93%9C%E5%BD%B1%E8%A7%86.py", "style": { "type": "rect", "ratio": 1.778 } }
+  ],
+  "parses": [
+    { "name": "解析聚合", "type": 3, "url": "Demo" },
+    { "name": "Json并发", "type": 2, "url": "Parallel" },
+    { "name": "技巧1", "type": 1, "url": "http://pan.qiaoji8.com/tvbox/gouzi.php?url=" },
+    { "name": "虾米", "type": 0, "url": "https://jx.xmflv.cc/?url=" }
+  ],
+  "rules": [
+    { "name": "广告过滤", "hosts": [ "vip.lz", "hd.lz", "ffzy" ], "regex": [ "#EXT-X-DISCONTINUITY\\r*\\n*#EXTINF:6.666667,[\\s\\S]*?#EXT-X-DISCONTINUITY" ] }
+  ],
+  "doh": [
+    { "name": "Google", "url": "https://dns.google/dns-query", "ips": [ "8.8.8.8" ] },
+    { "name": "Cloudflare", "url": "https://cloudflare-dns.com/dns-query", "ips": [ "1.1.1.1" ] }
+  ],
+  "flags": [ "youku", "优酷", "qq", "腾讯", "iqiyi", "qiyi", "爱奇艺", "mgtv", "芒果", "bilibili", "哔哩" ],
+  "ijk": [
+    {
+      "group": "标准解码",
+      "options": [
+        { "category": 4, "name": "opensles", "value": "0" },
+        { "category": 4, "name": "framedrop", "value": "1" },
+        { "category": 4, "name": "mediacodec", "value": "1" }
+      ]
+    }
+  ],
+  "ads": [ "cms.qdwght.com", "hm.baidu.com", "www.google-analytics.com", "vip.ffzyad.com" ]
+}
