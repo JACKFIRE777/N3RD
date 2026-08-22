@@ -3,8 +3,10 @@
   "spider": "https://github.com/JACKFIRE777/N3RD/raw/master/JN/aowuzz/jar/xyqxbpq.jar",
   "sites": [
  	  
-  { "key": "py_Phb", "name": "🚧1🍑Pornhub[中文]", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/master/JN/aowuzz/py/zz/pornhub.py", "style": { "type": "rect", "ratio": 1.778 } },
-	{ "key": "py_wmdy", "name": "🚧2🍑无码抖音", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/master/JN/aowuzz/py/zz/%E6%97%A0%E7%A0%81%E6%8A%96%E9%9F%B3.py", "style": { "type": "rect", "ratio": 1.778 } },  
+  { "key": "py_Phb", "name": "1🍑Pornhub[中文][py]", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/master/JN/aowuzz/py/zz/pornhub.py", "style": { "type": "rect", "ratio": 1.778 } },
+  { "key": "py_wmdy", "name": "🚧2🍑无码抖音[py]", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/master/JN/aowuzz/py/zz/无码抖音.py", "style": { "type": "rect", "ratio": 1.778 } },  
+  { "key": "py_51xg", "name": "3🍑51吸瓜动态版[py]", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/master/JN/aowuzz/py/zz/51吸瓜动态版.py", "style": { "type": "rect", "ratio": 1.778 } },
+
   
     //分割
   //{ "key": "py_Phb11", "name": "🔞测1Pornhub", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/master/JN/aowuzz/py/zz/pornhub.py", "style": { "type": "rect", "ratio": 1.778 } },
