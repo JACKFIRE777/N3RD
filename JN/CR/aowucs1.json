@@ -1,8 +1,9 @@
 {
-  "spider": "https://github.com/franksun1211/TXT/raw/main/TVbox/E8jin/xyqxbpq.jar",
+  "spider": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/xyqxbpq.jar",
   "wallpaper": "https://picsum.photos/1080/",
   "notice": "嗷呜测试",
   "sites": [
+    { "key": "py_Phb1", "name": "🔞🍑Pornhub(中文)", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/blob/JACKFIRE777-patch-1/JN/CR/aowu/py/phb-zz.py", "style": { "type": "rect", "ratio": 1.778 } },
     { "key": "py_wmdy", "name": "🔞无码抖音", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/%E6%97%A0%E7%A0%81%E6%8A%96%E9%9F%B3.py", "style": { "type": "rect", "ratio": 1.778 } },
     { "key": "py_wwys", "name": "哇哇影视", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/0186f10a_%E5%93%87%E5%93%87%E5%BD%B1%E8%A7%86.py", "style": { "type": "rect", "ratio": 1.778 } },
     { "key": "py_miss3", "name": "Miss3", "type": 3, "api": "https://github.com/JACKFIRE777/N3RD/raw/JACKFIRE777-patch-1/JN/CR/%E5%97%B7%E5%91%9C%E4%B8%93%E8%BE%91/jaychouqq/16ec2b6b_Miss3.py", "style": { "type": "rect", "ratio": 1.778 } },
